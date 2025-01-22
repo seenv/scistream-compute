@@ -16,7 +16,8 @@ def get_config_path():
         return config_path
     else:
         # If the environment variable is not set, use the default path
-        default_path = os.path.expanduser("~/.scistream")
+        #default_path = os.path.expanduser("~/.scistream")
+        default_path = '/tmp/.scistream'
 
         # Create the directory if it doesn't exist
         os.makedirs(default_path, exist_ok=True)

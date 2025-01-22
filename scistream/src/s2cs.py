@@ -19,8 +19,8 @@ class S2CSException(Exception):
 
 default_cid = "c42c0dac-0a52-408e-a04f-5d31bfe0aef8"
 default_secret = ""
-default_server_crt = "/home/seena/globus-stream/scistream-compute/keys/server.crt"
-default_server_key = "/home/seena/globus-stream/scistream-compute/keys/server.key"
+default_server_crt = "server.crt"
+default_server_key = "server.key"
 
 import importlib.metadata
 

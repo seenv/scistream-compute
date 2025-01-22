@@ -42,8 +42,8 @@ def get_uuid(client, name):
 gcc = Client()
 
 #endpoints = {"pub": "swell-guy", "sub": "this-guy"}
-endpoints = {"pub": "swell", "sub1": "this", "sub2": "neat"}
-ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "neat": "128.135.164.120", }
+endpoints = {"this": "con", "p2cs": "that", "c2cs": "neat", "con": "swell"}
+ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "that":"128.135.164.119", "neat": "128.135.164.120"}
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 
 """if not all(endpoint_ids.values()):
@@ -56,14 +56,15 @@ endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 """commands = {"pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 1 --num_conns 2",
             "sub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
 
-commands = {"pub": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
-            "sub1": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "sub2": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}
+"""commands = {"pub": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --publish --num_subs 3 --num_conns 2",
+            "sub1": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "sub2": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "sub3": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
 
-"""commands = {"p2cs": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
-            "pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "c2cs": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "con": ""}"""
+commands = {"p2cs": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
+            "pub": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "c2cs": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "con": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}
 
 shell_functions = {key: ShellFunction(cmd) for key, cmd in commands.items()}
 
@@ -71,6 +72,7 @@ with ThreadPoolExecutor(max_workers=len(endpoints)) as executor:
     future_to_endpoint = {
         executor.submit(run_executor, endpoint_ids[key], shell_func, commands[key]): key
         for key, shell_func in shell_functions.items()}
+
 print("\n")
 
 for future in as_completed(future_to_endpoint):
