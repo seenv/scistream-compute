@@ -1,0 +1,77 @@
+THAT: p2cs      128.135.164.119 128.135.24.119
+
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = 128.135.24.119
+
+[v3_req]
+subjectAltName = IP:128.135.24.117, IP:128.135.24.118, IP:128.135.164.119, IP:128.135.24.119, IP:128.135.164.120, IP:128.135.24.120
+
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -out server.csr -config server.conf
+openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt -extfile server.conf -extensions v3_req
+
+
+
+s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy
+
+
+
+THIS: pub       128.135.24.117
+cp ./vagrant/server.crt ./server.crt
+s2uc prod-req --s2cs 128.135.24.119:5007 --mock True &
+appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.119:5007 INVALID_TOKEN PROD 128.135.24.117
+
+
+
+NEAT: c2cs      128.135.164.120 128.135.24.120
+vagrant ssh consumers2
+s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy 
+
+
+
+SWELL: con      128.135.24.118
+vagrant ssh consumer
+s2uc cons-req --s2cs 128.135.24.120:5007 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.164.120:5074 &
+appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.120:5007 INVALID_TOKEN PROD 128.135.164.120
+
+
+
+
+
+
+s2cs  --type="Haproxy" --verbose --listener_ip=128.135.164.119
+
+
+s2uc inbound-request --remote_ip 128.135.24.119 --s2cs 128.135.164.119:5000
+s2uc outbound-request --remote_ip 128.135.164.120 --s2cs 128.135.24.119:5000 --receiver_ports 5201 745cf1d0-a3aa-11ef-bec8-0242ac110003 128.135.164.120:5000
+
+
+s2cs --type="Haproxy" --verbose --listener_ip=128.135.164.120
+
+
+s2uc outbound-request --remote_ip 128.135.24.119 --s2cs 128.135.164.120:5000 745cf1d0-a3aa-11ef-bec8-0242ac110003 128.135.164.119
+
+
+
+
+
+
+
+
+
+
+
+s2cs  --type="Haproxy" --verbose --listener_ip=128.135.24.119
+
+s2uc inbound-request --remote_ip 128.135.164.119 --s2cs 128.135.24.119:5000
+s2uc outbound-request --remote_ip 128.135.164.119 --s2cs 128.135.24.119:5000 --receiver_ports 5201 745cf1d0-a3aa-11ef-bec8-0242ac110003 128.135.164.120:5000
+
+
+s2cs --type="Haproxy" --verbose --listener_ip=128.135.24.120
+s2uc inbound-request --remote_ip 128.135.24.120 --s2cs 128.135.164.120:5000
+s2uc outbound-request  --server_cert="./server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000 745cf1d0-a3aa-11ef-bec8-0242ac110003 128.135.164.120
