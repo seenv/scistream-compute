@@ -10,10 +10,10 @@ x509_extensions = v3_req
 prompt = no
 
 [req_distinguished_name]
-CN = 192.168.100.11
+CN = 128.135.24.119
 
 [v3_req]
-subjectAltName = IP:192.168.100.11, IP:192.168.100.10, IP:192.168.101.10, IP:192.168.101.11, IP:192.168.102.10, IP:192.168.102.11
+subjectAltName = IP:128.135.24.117, IP:128.135.24.118, IP:128.135.164.119, IP:128.135.24.119, IP:128.135.164.120, IP:128.135.24.120
 EOL
 
 openssl req -new -key server.key -out server.csr -config server.conf
@@ -25,7 +25,6 @@ cp server.crt server.key /tmp/
 echo "RSA key and server.conf have been created successfully."
 
 # Start scistream's control server
-s2cs --verbose --port=5007 --listener-ip=192.168.100.11 --type=Haproxy
-
+s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy
 
 

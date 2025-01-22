@@ -18,16 +18,6 @@ def run_executor(endpoint_id, bf, code):
         time.sleep(10)
         return future
         
-        """ Blocks the system
-        if hasattr(shell_result, "error") and shell_result.error:
-            print(f"error executing on {endpoint_id}: {shell_result.error}")
-        else:
-            print(f"completed successfully  {endpoint_id} in {elapsed_time:.2f} seconds")
-            print(f"PID: {getattr(shell_result, 'pid', 'N/A')}", flush=True)
-            print(f"Return Code: {getattr(shell_result, 'returncode', 'N/A')}")
-            print(f"Stdout:\n{getattr(shell_result, 'stdout', 'No Output')}", flush=True)
-            print(f"Stderr:\n{getattr(shell_result, 'stderr', '')}")
-        """
 
 def get_uuid(client, name):
     try:
@@ -48,21 +38,6 @@ gcc = Client()
 endpoints = {"pub": "this", "this": "pub", "p2cs": "that", "c2cs": "neat", "con": "swell", "con": "swell"}
 ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "that":"128.135.164.119", "neat": "128.135.164.120"}
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
-
-"""if not all(endpoint_ids.values()):
-    missing = [key for key, ep_id in endpoint_ids.items() if ep_id is None]
-    raise ValueError(f"can't find it: {', '.join(missing)}")"""
-
-"""commands = {"pub": "python3 /home/seena/testing.py 4",
-            "sub": "python3 /home/seena/testing.py 3"}"""
-
-"""commands = {"pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 1 --num_conns 2",
-            "sub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
-
-"""commands = {"pub": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --publish --num_subs 3 --num_conns 2",
-            "sub3": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "sub2": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "sub3": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
 
 commands = {"p2cs": "s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy",
             "pub": "s2uc prod-req --s2cs 128.135.24.119:5007 --mock True &",
@@ -90,7 +65,3 @@ for future in as_completed(future_to_endpoint):
         print(f"Stderr: {result.stderr}")
     except Exception as e:
         print(f"Task failed for endpoint {endpoint_name}: {e}")
-
-"""for endpoint_name, endpoint_id in endpoint_ids.items():
-    print(f"stopping endpoint: {endpoint_name}")
-    gcc.stop_endpoint(endpoint_id)"""
