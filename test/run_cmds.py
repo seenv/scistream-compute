@@ -7,8 +7,8 @@ from datetime import datetime
 def run_executor(endpoint_id, bf, code):
     #print(f"start on {endpoint_id} with: {code}")
     with Executor(endpoint_id=endpoint_id) as gce:
-        print(f"\nexecute on {endpoint_id}\n")
-        future = gce.submit(bf)
+        print(f"xecute on {endpoint_id}\n")
+        future = gce.submit(bf, timeout=20)
         #shell_result = future.result()
         #print(f"DDDDBBBBGGGG: endpoint {endpoint_id}: {shell_result.stdout}")
         #shell_result = future.result()
@@ -42,7 +42,7 @@ def get_uuid(client, name):
 gcc = Client()
 
 #endpoints = {"pub": "swell-guy", "sub": "this-guy"}
-endpoints = {"pub": "swell-guy", "sub1": "this-guy", "sub2": "neat-guy"}
+endpoints = {"pub": "swell", "sub1": "this", "sub2": "neat"}
 
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 
@@ -56,9 +56,9 @@ endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 """commands = {"pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 1 --num_conns 2",
             "sub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
 
-commands = {"pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
-            "sub1": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "sub2": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}
+commands = {"pub": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
+            "sub1": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "sub2": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}
 
 shell_functions = {key: ShellFunction(cmd) for key, cmd in commands.items()}
 
