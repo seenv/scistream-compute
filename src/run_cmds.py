@@ -42,7 +42,7 @@ def get_uuid(client, name):
 gcc = Client()
 
 #endpoints = {"pub": "swell-guy", "sub": "this-guy"}
-endpoints = {"this": "con", "p2cs": "that", "c2cs": "neat", "con": "swell"}
+endpoints = {"pub": "this", "this": "pub", "p2cs": "that", "c2cs": "neat", "con": "swell", "con": "swell"}
 ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "that":"128.135.164.119", "neat": "128.135.164.120"}
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 
@@ -57,14 +57,16 @@ endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
             "sub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
 
 """commands = {"pub": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --publish --num_subs 3 --num_conns 2",
-            "sub1": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "sub3": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
             "sub2": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
             "sub3": "timeout 15s python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
 
-commands = {"p2cs": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
-            "pub": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "c2cs": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "con": "timeout 15s python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}
+commands = {"p2cs": "timeout 15s s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy",
+            "pub": "sleep 2 && s2uc prod-req --s2cs 128.135.24.119:5007 --mock True &",
+            "pub": "sleep 3 && appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.119:5007 INVALID_TOKEN PROD 128.135.24.117",
+            "c2cs": "sleep 5 && s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy",
+            "con": "sleep 7 && s2uc cons-req --s2cs 128.135.24.120:5007 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.164.120:5074 &",
+            "con": "sleep 8 && appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.120:5007 INVALID_TOKEN PROD 128.135.164.120"}
 
 shell_functions = {key: ShellFunction(cmd) for key, cmd in commands.items()}
 
@@ -82,7 +84,7 @@ for future in as_completed(future_to_endpoint):
         result = result_future.result() 
         print(f"Task completed for endpoint {endpoint_name}:")
         print(f"Stdout: {result.stdout}")
-        #print(f"Stderr: {result.stderr}")
+        print(f"Stderr: {result.stderr}")
     except Exception as e:
         print(f"Task failed for endpoint {endpoint_name}: {e}")
 
