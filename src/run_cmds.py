@@ -7,7 +7,7 @@ from datetime import datetime
 def run_executor(endpoint_id, bf, code):
     #print(f"start on {endpoint_id} with: {code}")
     with Executor(endpoint_id=endpoint_id) as gce:
-        print(f"\nexecute on {endpoint_id}\n")
+        print(f"execute on {endpoint_id}")
         future = gce.submit(bf, timeout=20)
         #shell_result = future.result()
         #print(f"DDDDBBBBGGGG: endpoint {endpoint_id}: {shell_result.stdout}")
@@ -32,7 +32,7 @@ def get_uuid(client, name):
         for ep in endpoints:
             endpoint_name = ep.get('name', '').strip()
             if endpoint_name == name.strip().lower():
-                print(f"\nfound {name}\n")
+                #print(f"\nfound {name}\n")
                 return ep.get('uuid')
     except Exception as e:
         print(f"error fetching {name}: {str(e)}")
@@ -42,8 +42,8 @@ def get_uuid(client, name):
 gcc = Client()
 
 #endpoints = {"pub": "swell-guy", "sub": "this-guy"}
-endpoints = {"pub": "swell-guy", "sub1": "this-guy", "sub2": "neat-guy"}
-
+endpoints = {"pub": "swell", "sub1": "this", "sub2": "neat"}
+ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "neat": "128.135.164.120", }
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 
 """if not all(endpoint_ids.values()):
@@ -56,9 +56,14 @@ endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 """commands = {"pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 1 --num_conns 2",
             "sub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}"""
 
-commands = {"pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
-            "sub1": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
-            "sub2": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}
+commands = {"pub": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
+            "sub1": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "sub2": "python3 /home/seena/globus-stream/zmq/src/multi-port.v.04/main.py --pub_ip 128.135.24.118"}
+
+"""commands = {"p2cs": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --publish --num_subs 2 --num_conns 2",
+            "pub": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "c2cs": "python3 /home/seena/globus-stream/src/multi-port.v.04/main.py --pub_ip 128.135.24.118",
+            "con": ""}"""
 
 shell_functions = {key: ShellFunction(cmd) for key, cmd in commands.items()}
 
@@ -66,6 +71,7 @@ with ThreadPoolExecutor(max_workers=len(endpoints)) as executor:
     future_to_endpoint = {
         executor.submit(run_executor, endpoint_ids[key], shell_func, commands[key]): key
         for key, shell_func in shell_functions.items()}
+print("\n")
 
 for future in as_completed(future_to_endpoint):
     endpoint_name = future_to_endpoint[future]
@@ -74,7 +80,7 @@ for future in as_completed(future_to_endpoint):
         result = result_future.result() 
         print(f"Task completed for endpoint {endpoint_name}:")
         print(f"Stdout: {result.stdout}")
-        print(f"Stderr: {result.stderr}")
+        #print(f"Stderr: {result.stderr}")
     except Exception as e:
         print(f"Task failed for endpoint {endpoint_name}: {e}")
 
