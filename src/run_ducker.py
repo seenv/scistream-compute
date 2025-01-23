@@ -36,7 +36,7 @@ gcc = Client()
 
 #endpoints = {"pub": "swell-guy", "sub": "this-guy"}
 #endpoints = {"pub": "this", "this": "pub", "p2cs": "that", "c2cs": "neat", "con": "swell", "con": "swell"}
-endpoints = {"this": "pub"}
+endpoints = {"pub": "this"}
 #ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "that":"128.135.164.119", "neat": "128.135.164.120"}
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 """
