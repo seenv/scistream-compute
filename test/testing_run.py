@@ -9,22 +9,9 @@ def run_executor(endpoint_id, bf, code):
     with Executor(endpoint_id=endpoint_id) as gce:
         print(f"execute on {endpoint_id}: {code}")
         future = gce.submit(bf)
-        #shell_result = future.result()
-        #print(f"DDDDBBBBGGGG: endpoint {endpoint_id}: {shell_result.stdout}")
-        #shell_result = future.result()
-        #elapsed_time = time.time() - start_time
+
         return future
         
-        """ Blocks the system
-        if hasattr(shell_result, "error") and shell_result.error:
-            print(f"error executing on {endpoint_id}: {shell_result.error}")
-        else:
-            print(f"completed successfully  {endpoint_id} in {elapsed_time:.2f} seconds")
-            print(f"PID: {getattr(shell_result, 'pid', 'N/A')}", flush=True)
-            print(f"Return Code: {getattr(shell_result, 'returncode', 'N/A')}")
-            print(f"Stdout:\n{getattr(shell_result, 'stdout', 'No Output')}", flush=True)
-            print(f"Stderr:\n{getattr(shell_result, 'stderr', '')}")
-        """
 
 def get_uuid(client, name):
     try:
@@ -39,16 +26,12 @@ def get_uuid(client, name):
 
 
 gcc = Client()
-endpoints = {"pub": "swell", "sub": "this"}
+endpoints = {"vagrant": "that-prod"}
 
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 
-"""if not all(endpoint_ids.values()):
-    missing = [key for key, ep_id in endpoint_ids.items() if ep_id is None]
-    raise ValueError(f"can't find it: {', '.join(missing)}")"""
 
-commands = {"pub": "python3 /home/seena/scistream-compute/test/testing.py 4",
-            "sub": "python3 /home/seena/testing.py 3"}
+commands = {"vagrant": "python3 /home/vagrant/testing.py 4"}
 
 shell_functions = {key: ShellFunction(cmd) for key, cmd in commands.items()}
 
