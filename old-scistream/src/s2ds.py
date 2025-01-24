@@ -7,6 +7,9 @@ import json
 import time
 import urllib3
 
+import sys, socket
+
+
 class S2DSException(Exception):
     pass
 
@@ -121,6 +124,22 @@ class ProxyContainer():
         #renders file to a slightly different location
 
         config_path = get_haproxy_config_path()
+        print(f"\n DEBUG: config path is {config_path} \n")
+
+        #DEBUG
+        #hostname = socket.gethostname()
+        #sub_ip = socket.gethostbyname(sub_hostname)
+        print(f"\n DEBUG in c2ds: hostname is {socket.gethostname()}")
+        print(f"DEBUG: path to the current environment is {sys.prefix}")
+        print(f"DEBUG: the base system Python path is {sys.base_prefix}")
+        if sys.prefix != sys.base_prefix :
+            print(f"DEBUG: virtual env is active")
+        else:   
+            print(f"DEBUG: virtual env is not active \n")
+        #print(f"\n DEBUG: The endpoint is {hostname}")        
+        #print(f"DEBUG: The add of server key is {Path(self.key_filename).resolve()} and crt is {Path(self.cfg_filename).resolve()} \n")
+        #print(f"DEBUG: The add of server key is {os.path.abspath(self.key_filename)} and crt is {os.path.abspath(self.cfg_filename)} \n")
+        #print(f"DEBUG: The add of server key is {self.key_filename} and loc is {self.cfg_location} \n")
 
         with open(f'{config_path}/{self.cfg_filename}', 'w') as f:
             f.write(template.render(vars))

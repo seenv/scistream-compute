@@ -4,11 +4,35 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 
+import sys, socket
+
+def get_venv():
+    return {
+        
+    }
+
+executor = Executor(endpoint_id="YOUR_ENDPOINT_ID")
+future = executor.submit(get_virtual_env)
+print(future.result())
+
+
 def run_executor(endpoint_id, bf, code):
     import time
     from datetime import datetime
+    import sys, socket
+    
     #print(f"start on {endpoint_id} with: {code}")
     with Executor(endpoint_id=endpoint_id) as gce:
+        #DEBUG 
+        print(f"\n hostname is {socket.gethostname()}")
+        print(f"path to the current environment is {sys.prefix}")
+        print(f"the base system Python path is {sys.base_prefix}")
+        if sys.prefix != sys.base_prefix :
+            print(f"virtual env is active")
+        else:   
+            print(f"virtual env is not active \n")
+            
+        
         print(f"execute on {endpoint_id}")
         future = gce.submit(bf, timeout=20)
         #shell_result = future.result()

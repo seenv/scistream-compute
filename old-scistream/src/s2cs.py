@@ -11,12 +11,16 @@ from .s2ds import create_instance
 from .utils import request_decorator, set_verbosity, authenticated
 from globus_action_provider_tools.authentication import TokenChecker
 
+import socket, os
+from pathlib import Path
+
 class S2CSException(Exception):
     pass
 default_cid = 'c42c0dac-0a52-408e-a04f-5d31bfe0aef8'
 default_secret = ""
-default_server_crt = 'server.crt'
+default_server_crt = 'server.crt'     
 default_server_key = 'server.key'
+
 
 import importlib.metadata
 __version__ = importlib.metadata.version('scistream-proto')
@@ -146,6 +150,24 @@ def start(listener_ip='0.0.0.0', port=5000, type= "S2DS", v=False, verbose=False
     if version:
         print(f"s2cs, version: {__version__}")
         return
+
+    #DEBUG
+    #hostname = socket.gethostname()
+    #sub_ip = socket.gethostbyname(sub_hostname)
+    print(f"\n DEBUG in c2cs: hostname is {socket.gethostname()}")
+    print(f"DEBUG: path to the current environment is {sys.prefix}")
+    print(f"DEBUG: the base system Python path is {sys.base_prefix}")
+    if sys.prefix != sys.base_prefix :
+        print(f"DEBUG: virtual env is active")
+    else:   
+        print(f"DEBUG: virtual env is not active \n")
+    #print(f"\n DEBUG: The endpoint is {hostname}")
+
+    #server_key = '/home/vagrant/keys/server.key'
+    #server_crt = '/home/vagrant/keys/server.crt'
+
+    print(f"DEBUG: The add of server key is {Path(server_key).resolve()} and crt is {Path(server_crt).resolve()} \n")
+    print(f"DEBUG: The add of server key is {os.path.abspath(server_key)} and crt is {os.path.abspath(server_crt)} \n")
     with open(server_key, 'rb') as f:
         private_key = f.read()
     with open(server_crt, 'rb') as f:

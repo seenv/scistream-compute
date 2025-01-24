@@ -1,0 +1,1 @@
+globus-cli 3.32.0 requires globus-sdk==3.46.0, but you have globus-sdk 3.50.0 which is incompatible.

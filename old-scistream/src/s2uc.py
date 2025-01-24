@@ -2,7 +2,7 @@ import click
 import grpc
 import uuid
 import time
-import sys
+import sys, socket, os
 from .appcontroller import AppCtrl
 from .appcontroller import IperfCtrl
 from concurrent import futures
@@ -12,6 +12,7 @@ from .proto import scistream_pb2
 from .proto import scistream_pb2_grpc
 from . import utils
 import importlib.metadata
+from pathlib import Path
 __version__ = importlib.metadata.version('scistream-proto')
 
 @click.group()
@@ -116,6 +117,22 @@ def release(uid, s2cs, server_cert, metadata=None):
 @click.option('--mock', default=False)
 @click.option('--scope', default="")
 def prod_req(num_conn, rate, s2cs, server_cert, mock, scope):
+    
+    #DEBUG
+    #hostname = socket.gethostname()
+    #sub_ip = socket.gethostbyname(sub_hostname)
+    print(f"\n DEBUG in s2uc: hostname is {socket.gethostname()}")
+    print(f"DEBUG: path to the current environment is {sys.prefix}")
+    print(f"DEBUG: the base system Python path is {sys.base_prefix}")
+    if sys.prefix != sys.base_prefix :
+        print(f"DEBUG: virtual env is active")
+    else:   
+        print(f"DEBUG: virtual env is not active \n")
+    #print(f"\n DEBUG: The endpoint is {hostname}")
+    print(f"DEBUG: The add of server crt is {server_cert} \n")
+    print(f"DEBUG: The add of server crt is {Path(server_cert).resolve()} \n")
+    print(f"DEBUG: The add of server crt is {os.path.abspath(server_cert)} \n")
+
     with open(server_cert, 'rb') as f:
         trusted_certs = f.read()
         credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
@@ -148,6 +165,23 @@ def prod_req(num_conn, rate, s2cs, server_cert, mock, scope):
 @click.argument("uid")
 @click.argument("prod_lstn")
 def cons_req(num_conn, rate, s2cs, scope, server_cert, uid, prod_lstn):  # uid and prod_lstn are dependencies from PROD context
+    
+    #DEBUG
+    #hostname = socket.gethostname()
+    #sub_ip = socket.gethostbyname(sub_hostname)
+    print(f"\n DEBUG in s2uc: hostname is {socket.gethostname()}")
+    print(f"DEBUG: path to the current environment is {sys.prefix}")
+    print(f"DEBUG: the base system Python path is {sys.base_prefix}")
+    if sys.prefix != sys.base_prefix :
+        print(f"DEBUG: virtual env is active")
+    else:   
+        print(f"DEBUG: virtual env is not active \n")
+    #print(f"\n DEBUG: The endpoint is {hostname}")
+    print(f"DEBUG: The add of server crt is {server_cert} \n")
+    print(f"DEBUG: The add of server crt is {Path(server_cert).resolve()} \n")
+    print(f"DEBUG: The add of server crt is {os.path.abspath(server_cert)} \n")
+
+    
     with open(server_cert, 'rb') as f:  
         trusted_certs = f.read()
         credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
@@ -159,7 +193,7 @@ def cons_req(num_conn, rate, s2cs, scope, server_cert, uid, prod_lstn):  # uid a
         with futures.ThreadPoolExecutor(max_workers=2) as executor:
             cons_resp_future = executor.submit(client_request, cons_stub, uid, "CONS", num_conn, rate, scope_id=scope)
             cons_resp = cons_resp_future.result()
-        cons_lstn = cons_resp.listeners
+        #cons_lstn = cons_resp.listeners
         # Update the cons_stub
         if ',' in prod_lstn:
             listener_array = prod_lstn.split(',')
