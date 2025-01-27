@@ -142,10 +142,18 @@ class ProxyContainer():
         #print(f"DEBUG: The add of server key is {os.path.abspath(self.key_filename)} and crt is {os.path.abspath(self.cfg_filename)} \n")
         #print(f"DEBUG: The add of server key is {self.key_filename} and loc is {self.cfg_location} \n")
 
-        with open(f'{config_path}/{self.cfg_filename}', 'w') as f:
+        """with open(f'{config_path}/{self.cfg_filename}', 'w') as f:
             f.write(template.render(vars))
         with open(f'{config_path}/{self.key_filename}', 'w') as f:
-            f.write("client1:"+uid.replace("-", ""))
+            f.write("client1:"+uid.replace("-", ""))"""
+        
+        config_file_path = f'{config_path}/{self.cfg_filename}'
+        with open(config_file_path, 'w') as f:
+            f.write(template.render(vars))
+
+        key_file_path = f'{config_path}/{self.key_filename}'
+        with open(key_file_path, 'w') as f:
+            f.write("client1:" + uid.replace("-", ""))
 
         # DEBUG: changing the permision of the config and key file
         os.chmod(config_file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
