@@ -125,7 +125,7 @@ class ProxyContainer():
         #renders file to a slightly different location
 
         config_path = get_haproxy_config_path()
-        print(f"\n DEBUG: config path is {config_path} \n")
+        print(f"DEBUG: config path is {config_path} \n")
 
         #DEBUG
         #hostname = socket.gethostname()
@@ -146,6 +146,13 @@ class ProxyContainer():
             f.write(template.render(vars))
         with open(f'{config_path}/{self.key_filename}', 'w') as f:
             f.write("client1:"+uid.replace("-", ""))
+
+        # DEBUG: changing the permision of the config and key file
+        os.chmod(config_file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+        os.chmod(key_file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+
+        print(f"DEBUG: setting permissions of {config_file_path} and {key_file_path} to 644 ")
+
         # Define the container configuration
         container_config = {
             'image': self.image_name ,
@@ -157,6 +164,8 @@ class ProxyContainer():
                         },
             'network_mode': 'host'
         }
+
+        
         # Start the proxy container
         name = self.container_name
         
