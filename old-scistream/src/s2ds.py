@@ -27,14 +27,15 @@ def create_instance(class_name):
 
 def get_haproxy_config_path():
     # Check if the environment variable for HAProxy config path is set
-    config_path = os.environ.get('HAPROXY_CONFIG_PATH')
+    config_path = os.environ.get('HAPROXY_CONFIG_PATH')     
 
     if config_path:
         # If the environment variable is set, use its value
         return config_path
     else:
         # If the environment variable is not set, use the default path
-        default_path = os.path.expanduser('~/.scistream')
+        #default_path = os.path.expanduser('~/.scistream')      # gives permission denied when running in env
+        default_path = '/tmp/.scistream'
 
         # Create the directory if it doesn't exist
         os.makedirs(default_path, exist_ok=True)
