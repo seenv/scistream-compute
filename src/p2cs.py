@@ -36,7 +36,6 @@ with Executor(endpoint_id=endpoint_id) as gce:
     future = gce.submit(shell_function)
     print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future.task_id}")
 
-# Track the task asynchronously
 print("Waiting for task completion...\n")
 future_to_endpoint = {future: "p2cs"}
 

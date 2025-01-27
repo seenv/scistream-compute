@@ -24,21 +24,18 @@ endpoints = {"pub": "this", "p2cs": "that", "c2cs": "neat", "con": "swell"}
 ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "that": "128.135.164.119", "neat": "128.135.164.120"}
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 
-commands = {"pub": "s2uc prod-req --s2cs 128.135.24.119:5007 --mock True &"}
+commands = {"pub": "s2uc prod-req --s2cs 128.135.24.119:5007 --mock True & appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.119:5007 INVALID_TOKEN PROD 128.135.24.117"}
 
-endpoint_id = get_uuid(gcc, "this")
 
-enpoint = get_uuid(gcc, "pub")
-shell_function = ShellFunction(commands["pub"])
+shell_functions = {key: ShellFunction(cmd) for key, cmd in commands.items()}
 
 with Executor(endpoint_id=endpoint_id) as gce:
     print(f"Executing on endpoint {endpoint_id}...")
     future = gce.submit(shell_function)
     print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future.task_id}")
 
-# Track the task asynchronously
 print("Waiting for task completion...\n")
-future_to_endpoint = {future: "pub"}
+future_to_endpoint = {future: "p2cs"}
 
 for future in as_completed(future_to_endpoint):
     endpoint_name = future_to_endpoint[future]

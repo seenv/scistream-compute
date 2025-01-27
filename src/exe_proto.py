@@ -2,9 +2,8 @@ import time
 from globus_compute_sdk import Executor, Client, ShellFunction
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-
-
 import sys, socket
+
 
 """def get_venv():
     import sys, socket, os
@@ -62,8 +61,8 @@ commands = {"p2cs": "s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --t
             "pub": "s2uc prod-req --s2cs 128.135.24.119:5007 --mock True &",
             "pub": "appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.119:5007 INVALID_TOKEN PROD 128.135.24.117",
             "c2cs": "s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy",
-            "con": "s2uc cons-req --s2cs 128.135.24.120:5007 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.164.120:5074 &",
-            "con": "appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.120:5007 INVALID_TOKEN PROD 128.135.164.120"}
+            "con": "s2uc cons-req --s2cs 128.135.24.120:5007 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.164.119:5074 &",
+            "con": "appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.120:5007 INVALID_TOKEN PROD 128.135.164.119"}
 
 
 """futures = {}
