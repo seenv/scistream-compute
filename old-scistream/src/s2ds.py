@@ -7,7 +7,7 @@ import json
 import time
 import urllib3
 
-import sys, socket
+import sys, socket, stat
 
 
 class S2DSException(Exception):
