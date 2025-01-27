@@ -6,32 +6,27 @@ from datetime import datetime
 
 import sys, socket
 
-def get_venv():
+"""def get_venv():
+    import sys, socket, os
     return {
-        
-    }
-
-executor = Executor(endpoint_id="YOUR_ENDPOINT_ID")
-future = executor.submit(get_virtual_env)
-print(future.result())
+        "hostname": socket.gethostname(),
+        "sys.prefix": sys.prefix,
+        "sys.base_prefix": sys.base_prefix,
+        "virtual_env_active": sys.prefix != sys.base_prefix, 
+        "python_path": sys.executable,
+        "current_dir": os.getcwd(),
+        "env_vars": {key: value for key, value in os.environ.items() if 'PYTHON' in key}
+    }"""
 
 
 def run_executor(endpoint_id, bf, code):
     import time
     from datetime import datetime
-    import sys, socket
+    import sys, socket, os
+
     
     #print(f"start on {endpoint_id} with: {code}")
     with Executor(endpoint_id=endpoint_id) as gce:
-        #DEBUG 
-        print(f"\n hostname is {socket.gethostname()}")
-        print(f"path to the current environment is {sys.prefix}")
-        print(f"the base system Python path is {sys.base_prefix}")
-        if sys.prefix != sys.base_prefix :
-            print(f"virtual env is active")
-        else:   
-            print(f"virtual env is not active \n")
-            
         
         print(f"execute on {endpoint_id}")
         future = gce.submit(bf, timeout=20)
@@ -59,7 +54,7 @@ def get_uuid(client, name):
 gcc = Client()
 
 #endpoints = {"pub": "swell-guy", "sub": "this-guy"}
-endpoints = {"pub": "this", "this": "pub", "p2cs": "that", "c2cs": "neat", "con": "swell", "con": "swell"}
+endpoints = {"pub": "this", "p2cs": "that", "c2cs": "neat", "con": "swell"}
 ep_ips = {"this": "128.135.24.117", "swell": "128.135.24.118", "that":"128.135.164.119", "neat": "128.135.164.120"}
 endpoint_ids = {key: get_uuid(gcc, name) for key, name in endpoints.items()}
 
@@ -69,6 +64,25 @@ commands = {"p2cs": "s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --t
             "c2cs": "s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy",
             "con": "s2uc cons-req --s2cs 128.135.24.120:5007 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.164.120:5074 &",
             "con": "appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.120:5007 INVALID_TOKEN PROD 128.135.164.120"}
+
+
+"""futures = {}
+for key, endpoint_id in endpoint_ids.items():
+    if endpoint_id:
+        executor = Executor(endpoint_id=endpoint_id)
+        future = executor.submit(get_venv)
+        futures[key] = future
+    else:
+        print(f"can't find the endpoint {key}")
+
+results = {}
+for key, future in futures.items():
+    try:
+        results[key] = future.result()
+        print(f"endpoint: {key} ({endpoint_ids[key]}): {results[key]}")
+    except Exception as e:
+        print(f"error fetching result from {key}: {str(e)}")"""
+
 
 shell_functions = {key: ShellFunction(cmd) for key, cmd in commands.items()}
 
