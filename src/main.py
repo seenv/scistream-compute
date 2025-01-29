@@ -5,6 +5,7 @@ from c2cs import c2cs
 from pub import pub
 from con import con
 
+
 if __name__ == "__main__":
     endpoint_functions = {"pub": pub, "p2cs": p2cs, "c2cs": c2cs, "con": con}
 
