@@ -22,7 +22,7 @@ def p2cs():
 
     try:
         print("Waiting for task completion...\n")
-        result = future.result()
+        result = future.result(())
         print("Task completed successfully!")
         print(f"Stdout: {result.stdout}")
         print(f"Stderr: {result.stderr}")

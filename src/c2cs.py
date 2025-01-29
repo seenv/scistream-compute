@@ -1,15 +1,20 @@
-def c2cs():
     
-    import time
-    from globus_compute_sdk import Executor, Client, ShellFunction
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    from datetime import datetime
-    import sys, socket
+import time
+from globus_compute_sdk import Executor, Client, ShellFunction
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+import sys, socket
+import signal
 
-    #gcc = Client()
+def cleanup_task(task_id, gcc):
+    """ Cancel the task when the script exits """
+    print(f"Canceling Task {task_id}...")
+    gcc.cancel_task(task_id)
 
 
-    commands = "s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy"
+def c2cs():
+
+    commands = "timeout 30 s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy"
 
     endpoint_id = "c9485ce4-6af4-4fda-90cb-64aae4891432"
 
@@ -18,11 +23,14 @@ def c2cs():
     with Executor(endpoint_id=endpoint_id) as gce:
         print(f"Executing on endpoint {endpoint_id}...")
         future = gce.submit(shell_function)
-        print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future.task_id}")
+        print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future}")
+
+        """signal.signal(signal.SIGTERM, lambda sig, frame: cleanup_task(future, gcc))
+        signal.signal(signal.SIGINT, lambda sig, frame: cleanup_task(future, gcc))"""
 
     try:
         print("Waiting for task completion...\n")
-        result = future.result()
+        result = future.result(timeout=30)
         print("Task completed successfully!")
         print(f"Stdout: {result.stdout}")
         print(f"Stderr: {result.stderr}")
