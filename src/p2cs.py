@@ -9,11 +9,11 @@ def p2cs():
     #gcc = Client()
 
 
-    commands = "s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy"
+    commands = "timeout 30 s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy"
 
     endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
 
-    shell_function = ShellFunction(commands)
+    shell_function = ShellFunction(walltime=60)
 
     with Executor(endpoint_id=endpoint_id) as gce:
         print(f"Executing on endpoint {endpoint_id}...")
@@ -22,7 +22,7 @@ def p2cs():
 
     try:
         print("Waiting for task completion...\n")
-        result = future.result(())
+        result = future.result(timeout=30)
         print("Task completed successfully!")
         print(f"Stdout: {result.stdout}")
         print(f"Stderr: {result.stderr}")

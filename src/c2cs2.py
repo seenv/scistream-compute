@@ -78,11 +78,12 @@ from globus_compute_sdk import Executor, ShellFunction, Client
 import threading
 import signal
 
+#def cleanup_task(task_id):
 def cleanup_task(task_id, gcc):
     print(f"Canceling Task {task_id}...")
     gcc.cancel_task(task_id)
     
-def output(task_id, gcc):
+"""def output(task_id, gcc):
     printed_lines = set() 
     try:
         while not future.done(): 
@@ -94,11 +95,23 @@ def output(task_id, gcc):
                         printed_lines.add(line)  
             time.sleep(0.5)
     except Exception as e:
+        print(f"Error reading output: {e}")"""
+
+def out(future):
+    """ Continuously reads and prints stdout as the task executes """
+    try:
+        while not future.done(): 
+            result = future.result(timeout=1) 
+            if result and result.stdout:
+                print(result.stdout, end="", flush=True)
+            time.sleep(0.5)  
+    except Exception as e:
         print(f"Error reading output: {e}")
 
 def c2cs():
     commands = "timeout 30 s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy"
-    endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
+    endpoint_id = "c9485ce4-6af4-4fda-90cb-64aae4891432"
+
     #shell_function = ShellFunction(commands, stdout="output.log", stderr="error.log", walltime=120, snippet_lines=5000)
     shell_function = ShellFunction(commands, stdout="output.log", stderr="error.log", walltime=120)
 
@@ -115,7 +128,7 @@ def c2cs():
         """signal.signal(signal.SIGTERM, lambda sig, frame: cleanup_task(future, gcc))
         signal.signal(signal.SIGINT, lambda sig, frame: cleanup_task(future, gcc))"""
 
-        output_thread = threading.Thread(target=output, args=(future,))
+        output_thread = threading.Thread(target=out, args=(future,))
         output_thread.start()
 
         try:

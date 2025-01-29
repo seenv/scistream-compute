@@ -18,7 +18,7 @@ def c2cs():
 
     endpoint_id = "c9485ce4-6af4-4fda-90cb-64aae4891432"
 
-    shell_function = ShellFunction(commands)
+    shell_function = ShellFunction(commands, walltime=60)
 
     with Executor(endpoint_id=endpoint_id) as gce:
         print(f"Executing on endpoint {endpoint_id}...")

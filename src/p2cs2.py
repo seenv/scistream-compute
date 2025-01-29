@@ -82,7 +82,7 @@ def cleanup_task(task_id, gcc):
     print(f"Canceling Task {task_id}...")
     gcc.cancel_task(task_id)
     
-def output(future):
+"""def output(task_id, gcc):
     printed_lines = set() 
     try:
         while not future.done(): 
@@ -93,6 +93,17 @@ def output(future):
                         print(line)  
                         printed_lines.add(line)  
             time.sleep(0.5)
+    except Exception as e:
+        print(f"Error reading output: {e}")"""
+
+def out(future):
+    """ Continuously reads and prints stdout as the task executes """
+    try:
+        while not future.done(): 
+            result = future.result(timeout=1) 
+            if result and result.stdout:
+                print(result.stdout, end="", flush=True)
+            time.sleep(0.5)  
     except Exception as e:
         print(f"Error reading output: {e}")
 
@@ -115,7 +126,7 @@ def p2cs():
         """signal.signal(signal.SIGTERM, lambda sig, frame: cleanup_task(future, gcc))
         signal.signal(signal.SIGINT, lambda sig, frame: cleanup_task(future, gcc))"""
 
-        output_thread = threading.Thread(target=output, args=(future,))
+        output_thread = threading.Thread(target=out, args=(future,))
         output_thread.start()
 
         try:

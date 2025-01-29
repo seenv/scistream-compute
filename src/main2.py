@@ -29,19 +29,16 @@ from con import con
 
 
 if __name__ == "__main__":
-    # Map endpoint names to functions
     endpoint_functions = {"p2cs": p2cs, "pub": pub, "c2cs": c2cs, "con": con}
 
     endpoints = ["p2cs", "pub", "c2cs", "con"]
 
     threads = []
 
-    # Run each function in a separate thread for real-time stdout streaming
     for role in endpoints:
         thread = threading.Thread(target=endpoint_functions[role], daemon=True)
         thread.start()
         threads.append(thread)
 
-    # Wait for all tasks to complete
     for thread in threads:
         thread.join()
