@@ -1,5 +1,5 @@
-def p2cs():
-
+def c2cs():
+    
     import time
     from globus_compute_sdk import Executor, Client, ShellFunction
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9,9 +9,9 @@ def p2cs():
     #gcc = Client()
 
 
-    commands = "s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy"
+    commands = "s2cs --verbose --port=5007 --listener-ip=128.135.24.120 --type=Haproxy"
 
-    endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
+    endpoint_id = "c9485ce4-6af4-4fda-90cb-64aae4891432"
 
     shell_function = ShellFunction(commands)
 
