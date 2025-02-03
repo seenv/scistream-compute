@@ -1,8 +1,8 @@
 import argparse
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from p2cs2 import p2cs
-from c2cs2 import c2cs
+from p2cs import p2cs
+from c2cs import c2cs
 from pub import pub
 from con import con
 
