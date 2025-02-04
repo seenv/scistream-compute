@@ -1,4 +1,4 @@
-def con():
+def con(args, uuid):
     
     import time
     from globus_compute_sdk import Executor, Client, ShellFunction
@@ -8,15 +8,20 @@ def con():
 
     #gcc = Client()
 
-    command = "timeout 60 s2uc cons-req --s2cs 128.135.24.120:5007 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.164.119:5074 &  appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 128.135.24.120:5007 INVALID_TOKEN PROD 128.135.164.119"
-    endpoint_id = "efcb05ba-47aa-4c22-832f-21f3e23530a6"
+    command = f"""
+    timeout 60 bash -c '
+    sleep 15
+    s2uc cons-req --s2cs {args.c2cs_listener}:{args.sync_port} 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.p2cs_ip}:5074 &
+    sleep 5
+    appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.c2cs_listener}:{args.sync_port} INVALID_TOKEN PROD {args.p2cs_ip}'
+    """
 
-    shell_function = ShellFunction(command)
+    shell_function = ShellFunction(command, walltime=60)
 
-    with Executor(endpoint_id=endpoint_id) as gce:
-        print(f"Executing on endpoint {endpoint_id}...")
+    with Executor(endpoint_id=uuid) as gce:
+        print(f"Executing on endpoint {uuid}...")
         future = gce.submit(shell_function)
-        print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future.task_id}")
+        #print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future.task_id}")
 
     try:
         print("Waiting for task completion...\n")

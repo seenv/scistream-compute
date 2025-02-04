@@ -77,6 +77,7 @@ import time
 from globus_compute_sdk import Executor, ShellFunction, Client
 import threading
 import signal
+from globus_compute_sdk.sdk.executor import ComputeFuture
 
 def cleanup_task(task_id, gcc):
     print(f"Canceling Task {task_id}...")
@@ -96,8 +97,7 @@ def cleanup_task(task_id, gcc):
     except Exception as e:
         print(f"Error reading output: {e}")"""
 
-def out(future):
-    """ Continuously reads and prints stdout as the task executes """
+"""def out(future):
     try:
         while not future.done(): 
             result = future.result(timeout=1) 
@@ -105,9 +105,20 @@ def out(future):
                 print(result.stdout, end="", flush=True)
             time.sleep(0.5)  
     except Exception as e:
-        print(f"Error reading output: {e}")
+        print(f"Error reading output: {e}")"""
 
-def p2cs():
+def p2cs(args, uuid):
+
+
+    import time
+    from globus_compute_sdk import Executor, ShellFunction, Client
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+    import signal
+    from datetime import datetime
+    import sys, socket
+    from globus_compute_sdk.sdk.executor import ComputeFuture
+    """
     commands = "timeout 30 s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy"
     endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
     #shell_function = ShellFunction(commands, stdout="output.log", stderr="error.log", walltime=120, snippet_lines=5000)
@@ -123,20 +134,43 @@ def p2cs():
 
         print(f"Task submitted to endpoint {endpoint_id} with Task ID: {task_id}")
 
-        """signal.signal(signal.SIGTERM, lambda sig, frame: cleanup_task(future, gcc))
-        signal.signal(signal.SIGINT, lambda sig, frame: cleanup_task(future, gcc))"""
+        #signal.signal(signal.SIGTERM, lambda sig, frame: cleanup_task(future, gcc))
+        #signal.signal(signal.SIGINT, lambda sig, frame: cleanup_task(future, gcc))
 
         output_thread = threading.Thread(target=out, args=(future,))
         output_thread.start()
 
-        try:
-            result = future.result(timeout=60) 
-            output_thread.join() 
-            print("Task completed successfully!")
-            print(f"Stdout:\n{result.stdout}")
-            print(f"Stderr:\n{result.stderr}")
-        except Exception as e:
-            print(f"Task failed: {e}")
+    try:
+        result = future.result(timeout=60) 
+        output_thread.join() 
+        print("Task completed successfully!")
+        print(f"Stdout:\n{result.stdout}")
+        print(f"Stderr:\n{result.stderr}")
+    except Exception as e:
+        print(f"Task failed: {e}")
 
-        """finally:
-            cleanup_task(future, gcc) """
+    #finally:
+        #cleanup_task(future, gcc)"""
+
+
+    command = f"timeout 60 s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type}"
+
+    #endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
+
+    shell_function = ShellFunction(command, walltime=60)
+
+    with Executor(endpoint_id=uuid) as gce:
+        print(f"Executing on endpoint {uuid}...")
+        #print(f">>>>>>>>>>>>>>futures with this Task Group ID: {gce.task_group_id}")
+        future = gce.submit(shell_function)
+        #print(f" futures with this Task Group ID: {gce.task_group_id}")
+        #print(f">>>>>>>>>>>>>>task submitted to endpoint {endpoint_id} with task ID: {future.task_id}")
+
+    try:
+        print("Waiting for task completion...\n")
+        result = future.result(timeout=120)
+        print("Task completed successfully!")
+        print(f"Stdout: {result.stdout}")
+        print(f"Stderr: {result.stderr}")
+    except Exception as e:
+        print(f"Task failed: {e}")
