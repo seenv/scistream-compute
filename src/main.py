@@ -31,7 +31,6 @@ def get_uuid(client, name):
             if endpoint_name == name.strip().lower():
                 print("\n---------------------------\n")
                 print(f"DEBUG:found {name} with uuid {ep.get('uuid')}\n")
-                print("\n---------------------------\n")
                 return ep.get('uuid')
     except Exception as e:
         print(f"error fetching {name}: {str(e)}")
@@ -49,9 +48,8 @@ if __name__ == "__main__":
 
     ep_funcs = {"that": p2cs, "neat": c2cs, "this": pub, "swell": con}
 
-
     threads = {}
-    # Iterate directly over ep_funcs (keys = endpoint names, values = functions)
+    # iterate directly over ep_funcs (keys = endpoint names, values = functions)
     for ep_name, func in ep_funcs.items():
         uuid = get_uuid(gcc, ep_name)
         thread = threading.Thread(target=func, args=(args, uuid), daemon=True)

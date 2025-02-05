@@ -86,8 +86,13 @@ def c2cs(args, uuid):
         #finally:
         #    cleanup_task(future, gcc) """
 
-
-    command=f"timeout 60 s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type}"
+    log_file = "/tmp/s2cs_output.log" 
+    command=f"""
+    timeout 60 bash -c '
+    touch {log_file} &&
+    globus-compute-endpoint list | tee -a {log_file} &&
+    s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type} | tee -a {log_file}'
+    """
 
     #endpoint_id = "c9485ce4-6af4-4fda-90cb-64aae4891432"
 
@@ -101,9 +106,30 @@ def c2cs(args, uuid):
 
     try:
         print("Waiting for task completion...\n")
-        result = future.result(timeout=65)
+
+        # Open log file and stream output as it appears
+        with open(log_file, "r") as log:
+            while not future.done():
+                new_output = log.read()
+                if new_output:
+                    print(new_output, end="", flush=True)  # Print new output immediately
+                time.sleep(1)  # Poll every second to reduce CPU usage
+
+        # Fetch final result after completion
+        result = future.result()
         print("Task completed successfully!")
-        print(f"Stdout: {result.stdout}")
-        print(f"Stderr: {result.stderr}")
+        print(f"Final Stdout: {result.stdout}", flush=True)
+        print(f"Final Stderr: {result.stderr}", flush=True)
+
     except Exception as e:
         print(f"Task failed: {e}")
+
+
+"""    try:
+        print("Waiting for task completion...\n")
+        result = future.result(timeout=65)
+        print("Task completed successfully!")
+        print(f"Stdout: {result.stdout}", flush=True)
+        print(f"Stderr: {result.stderr}", flush=True)
+    except Exception as e:
+        print(f"Task failed: {e}")"""

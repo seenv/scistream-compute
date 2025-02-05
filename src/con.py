@@ -10,6 +10,8 @@ def con(args, uuid):
 
     command = f"""
     timeout 60 bash -c '
+    \n
+    globus-compute-endpoint list &&
     sleep 15
     s2uc cons-req --s2cs {args.c2cs_listener}:{args.sync_port} 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.p2cs_ip}:5074 &
     sleep 5

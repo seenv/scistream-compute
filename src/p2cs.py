@@ -118,6 +118,7 @@ def p2cs(args, uuid):
     from datetime import datetime
     import sys, socket
     from globus_compute_sdk.sdk.executor import ComputeFuture
+    
     """
     commands = "timeout 30 s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy"
     endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
@@ -153,7 +154,11 @@ def p2cs(args, uuid):
         #cleanup_task(future, gcc)"""
 
 
-    command = f"timeout 60 s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type}"
+    command = f"""
+    timeout 60 bash -c '
+    globus-compute-endpoint list &&
+    s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type}'
+    """
 
     #endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
 
@@ -170,7 +175,7 @@ def p2cs(args, uuid):
         print("Waiting for task completion...\n")
         result = future.result(timeout=120)
         print("Task completed successfully!")
-        print(f"Stdout: {result.stdout}")
-        print(f"Stderr: {result.stderr}")
+        print(f"Stdout: {result.stdout}", flush=True)
+        print(f"Stderr: {result.stderr}", flush=True)
     except Exception as e:
         print(f"Task failed: {e}")

@@ -10,6 +10,8 @@ def pub(args, uuid):
 
     command = f"""
     timeout 60 bash -c '
+    \n
+    globus-compute-endpoint list &&
     sleep 5
     s2uc prod-req --s2cs {args.p2cs_listener}:{args.sync_port} --mock True &
     sleep 5
