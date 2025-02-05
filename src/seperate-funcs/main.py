@@ -2,7 +2,10 @@ import argparse
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
-from endpoints import p2cs, c2cs, pub, con
+from p2cs import p2cs
+from c2cs import c2cs
+from pub import pub
+from con import con
 
 
 def get_args():
@@ -36,15 +39,20 @@ if __name__ == "__main__":
 
     gcc = Client()
     args = get_args()
+    
+    #eps = {"p2cs": "that", "c2cs": "neat", "prod": "this", "cons": "swell"}
+    #ep_funcs = {"that": p2cs, "neat": c2cs, "this": pub, "swell": con}
+    #ep_ids = {role: get_uuid(gcc, name) for role, name in ep_funcs.items()}
 
     ep_funcs = {"that": p2cs, "neat": c2cs, "this": pub, "swell": con}
 
     threads = {}
-    # iterate over ep_funcs (keys = endpoint names, values = functions)
+    # iterate directly over ep_funcs (keys = endpoint names, values = functions)
     for ep_name, func in ep_funcs.items():
         uuid = get_uuid(gcc, ep_name)
         thread = threading.Thread(target=func, args=(args, uuid), daemon=True)
         threads[thread] = ep_name
+
 
     for thread in threads:
         thread.start()
@@ -53,3 +61,36 @@ if __name__ == "__main__":
         thread.join()
         print(f"the {threads[thread]}'s is done")  
 
+
+
+
+
+
+
+
+
+
+
+
+
+"""if __name__ == "__main__":
+    endpoint_functions = {"pub": pub, "p2cs": p2cs, "c2cs": c2cs, "con": con}
+    log_files = {"p2cs": "p2cs_output.log", "c2cs": "c2cs_output.log", "pub": "pub_output.log", "con": "con_output.log"}
+
+    endpoints = ["pub", "p2cs", "c2cs", "con"]
+
+    with ThreadPoolExecutor(max_workers=len(endpoints)) as executor:
+        futures = {executor.submit(endpoint_functions[role]): role for role in endpoints}
+
+        log_threads = [threading.Thread(target=tail_log, args=(log_files[role],), daemon=True) for role in endpoints]
+        for t in log_threads:
+            t.start()
+
+    for future in as_completed(futures):
+        role = futures[future]
+        try:
+            future.result()
+            print(f"Task for {role} completed successfully.")
+        except Exception as e:
+            print(f'Task for {role} failed: {e}')
+"""
