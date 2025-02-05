@@ -41,14 +41,14 @@ def c2cs(args, uuid):
 
 
 
-    import time
     from globus_compute_sdk import Executor, ShellFunction, Client
+    from globus_compute_sdk.sdk.executor import ComputeFuture
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import threading
     import signal
     from datetime import datetime
-    import sys, socket
-    from globus_compute_sdk.sdk.executor import ComputeFuture
+    import sys, socket, time, os
+    
 
 
 
@@ -86,50 +86,43 @@ def c2cs(args, uuid):
         #finally:
         #    cleanup_task(future, gcc) """
 
-    log_file = "/tmp/s2cs_output.log" 
-    command=f"""
-    timeout 60 bash -c '
-    touch {log_file} &&
-    globus-compute-endpoint list | tee -a {log_file} &&
-    s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type} | tee -a {log_file}'
-    """
+    #log_file = '/home/seena/.globus_compute/neat/tasks_working_dir/s2cs_output.log"
+    #command=f"""
+    #timeout 60 bash -c '
+    #touch {log_file} &&
+    #globus-compute-endpoint list | tee -a {log_file} &&
+    #s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type} & | tee -a {log_file}'
+    #"""
 
     #endpoint_id = "c9485ce4-6af4-4fda-90cb-64aae4891432"
+
+    command=f"""
+    timeout 60 bash -c '
+    echo " Starting C2CS ---------------------------------"
+    globus-compute-endpoint list
+    nohup s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type} > /tmp/s2cs.log 2>&1 &
+    echo $! > /tmp/s2cs.pid
+    echo "S2CS PID in C2CS is " $!
+    sleep 50
+    kill -9 $(cat /tmp/s2cs.pid)
+    rm -f /tmp/s2cs.pid 
+    echo " Killing C2CS ---------------------------------"'
+    """
 
     shell_function = ShellFunction(command, walltime=60)
 
     with Executor(endpoint_id=uuid) as gce:
-        print(f"Executing on endpoint {uuid}...")
+        #print(f"Executing on EndPoint {uuid}...")
         #print(f" futures with this Task Group ID: {gce.task_group_id}")
         future = gce.submit(shell_function)
         #print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future.task_id}")
 
+
     try:
-        print("Waiting for task completion...\n")
-
-        # Open log file and stream output as it appears
-        with open(log_file, "r") as log:
-            while not future.done():
-                new_output = log.read()
-                if new_output:
-                    print(new_output, end="", flush=True)  # Print new output immediately
-                time.sleep(1)  # Poll every second to reduce CPU usage
-
-        # Fetch final result after completion
-        result = future.result()
-        print("Task completed successfully!")
-        print(f"Final Stdout: {result.stdout}", flush=True)
-        print(f"Final Stderr: {result.stderr}", flush=True)
-
-    except Exception as e:
-        print(f"Task failed: {e}")
-
-
-"""    try:
-        print("Waiting for task completion...\n")
+        #print("Waiting for task completion...\n")
         result = future.result(timeout=65)
         print("Task completed successfully!")
         print(f"Stdout: {result.stdout}", flush=True)
         print(f"Stderr: {result.stderr}", flush=True)
     except Exception as e:
-        print(f"Task failed: {e}")"""
+        print(f"Task failed: {e}")

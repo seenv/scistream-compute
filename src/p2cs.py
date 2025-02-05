@@ -110,14 +110,13 @@ def cleanup_task(task_id, gcc):
 def p2cs(args, uuid):
 
 
-    import time
     from globus_compute_sdk import Executor, ShellFunction, Client
+    from globus_compute_sdk.sdk.executor import ComputeFuture
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import threading
     import signal
     from datetime import datetime
-    import sys, socket
-    from globus_compute_sdk.sdk.executor import ComputeFuture
+    import sys, socket, time, os
     
     """
     commands = "timeout 30 s2cs --verbose --port=5007 --listener-ip=128.135.24.119 --type=Haproxy"
@@ -153,27 +152,34 @@ def p2cs(args, uuid):
     #finally:
         #cleanup_task(future, gcc)"""
 
-
-    command = f"""
-    timeout 60 bash -c '
-    globus-compute-endpoint list &&
-    s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type}'
-    """
-
     #endpoint_id = "df1658eb-1c81-4bb1-bc46-3a74f30d1ce1"
+    #no hup in the bash command keeps the process running even after the shell exits
+    command=f"""
+    timeout 60 bash -c '
+    echo " Starting P2CS ---------------------------------"
+    globus-compute-endpoint list 
+    nohup s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} > /tmp/s2cs.log 2>&1 &
+    echo $! > /tmp/s2cs.pid
+    echo "S2CS PID in P2CS is " $!
+    sleep 50
+    kill -9 $(cat /tmp/s2cs.pid)
+    rm -f /tmp/s2cs.pid
+    echo " Killing P2CS ---------------------------------"'
+    """
+    #s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} & '
 
     shell_function = ShellFunction(command, walltime=60)
 
     with Executor(endpoint_id=uuid) as gce:
-        print(f"Executing on endpoint {uuid}...")
+        #print(f"Executing on endpoint {uuid}...")
         #print(f">>>>>>>>>>>>>>futures with this Task Group ID: {gce.task_group_id}")
         future = gce.submit(shell_function)
         #print(f" futures with this Task Group ID: {gce.task_group_id}")
         #print(f">>>>>>>>>>>>>>task submitted to endpoint {endpoint_id} with task ID: {future.task_id}")
 
     try:
-        print("Waiting for task completion...\n")
-        result = future.result(timeout=120)
+        #print("Waiting for task completion...\n")
+        result = future.result(timeout=65)
         print("Task completed successfully!")
         print(f"Stdout: {result.stdout}", flush=True)
         print(f"Stderr: {result.stderr}", flush=True)

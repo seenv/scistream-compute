@@ -10,7 +10,6 @@ def pub(args, uuid):
 
     command = f"""
     timeout 60 bash -c '
-    \n
     globus-compute-endpoint list &&
     sleep 5
     s2uc prod-req --s2cs {args.p2cs_listener}:{args.sync_port} --mock True &
@@ -23,12 +22,12 @@ def pub(args, uuid):
     shell_function = ShellFunction(command, walltime=60)
 
     with Executor(endpoint_id=uuid) as gce:
-        print(f"Executing on endpoint {uuid}...")
+        #print(f"Executing on endpoint {uuid}...")
         future = gce.submit(shell_function)
         #print(f"Task submitted to endpoint {endpoint_id} with Task ID: {future.task_id}")
 
     try:
-        print("Waiting for task completion...\n")
+        #print("Waiting for task completion...\n")
         result = future.result()
         print("Task completed successfully!")
         print(f"Stdout: {result.stdout}")

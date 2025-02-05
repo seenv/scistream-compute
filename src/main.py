@@ -29,8 +29,7 @@ def get_uuid(client, name):
         for ep in endpoints:
             endpoint_name = ep.get('name', '').strip()
             if endpoint_name == name.strip().lower():
-                print("\n---------------------------\n")
-                print(f"DEBUG:found {name} with uuid {ep.get('uuid')}\n")
+                print(f"DEBUG:EndPoint: {name} with UUID: {ep.get('uuid')}")
                 return ep.get('uuid')
     except Exception as e:
         print(f"error fetching {name}: {str(e)}")
