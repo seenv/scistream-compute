@@ -12,11 +12,29 @@ def get_args():
     argparser.add_argument('--p2cs-ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
     argparser.add_argument('--type', help= "proxy type", default="Haproxy")
     argparser.add_argument('--c2cs-listener', help="listerner's IP of c2cs", default="128.135.24.120")
-    argparser.add_argument('--c2cs', help="IP address of the s2cs on consumer side", default='128.135.164.120')
-    argparser.add_argument('--prod-ip', help="producer's IP address", default='128.135.25.117')
+    argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
+    argparser.add_argument('--prod-ip', help="producer's IP address", default='128.135.24.117')
     #argparser.add_argument('--cons-ip', help="consumer's IP address", default="128.135.24.118")
 
     return argparser.parse_args()
+
+
+def get_ep_stat(gcc, uuid, name):
+    from globus_compute_sdk import Executor, ShellFunction, Client
+
+    command = "globus-compute-endpoint list "
+    shell_function = ShellFunction(command, walltime=30)
+    with Executor(endpoint_id=uuid)as gce:
+        future = gce.submit(shell_function)
+    try:
+        result = future.result(timeout=10)
+        print(f"Endpoint {name.capitalize()} Status: \n{result.stdout}", flush=True)
+        cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+        if cln_stderr.strip():
+            print(f"Stderr: {cln_stderr}", flush=True)
+    except Exception as e:
+        print(f"Getting EP Status failed: {e}")
+
 
 
 def get_uuid(client, name):
@@ -25,7 +43,8 @@ def get_uuid(client, name):
         for ep in endpoints:
             endpoint_name = ep.get('name', '').strip()
             if endpoint_name == name.strip().lower():
-                print(f"DEBUG:EndPoint: {name} with UUID: {ep.get('uuid')}")
+                #print(f"DEBUG:EndPoint: {name} with UUID: {ep.get('uuid')}")
+                get_ep_stat(client, ep.get('uuid'), str(name))
                 return ep.get('uuid')
     except Exception as e:
         print(f"error fetching {name}: {str(e)}")
@@ -51,5 +70,5 @@ if __name__ == "__main__":
 
     for thread in threads:
         thread.join()
-        print(f"the {threads[thread]}'s is done")  
+        print(f"Task Execution on Endpoint '{threads[thread]}' has Finished")  
 

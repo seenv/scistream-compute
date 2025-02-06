@@ -33,3 +33,20 @@ def con(args, uuid):
         print(f"Stderr: {result.stderr}")
     except Exception as e:
         print(f"Task failed: {e}")
+
+
+
+
+
+    command=f"""
+    timeout 60 bash -c '
+    echo " Starting P2CS ---------------------------------"
+    globus-compute-endpoint list 
+    nohup s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} > /tmp/s2cs.log 2>&1 &
+    echo $! > /tmp/s2cs.pid
+    echo "S2CS PID in P2CS is " $!
+    sleep 50
+    kill -9 $(cat /tmp/s2cs.pid)
+    rm -f /tmp/s2cs.pid
+    echo " Killing P2CS ---------------------------------"'
+    """
