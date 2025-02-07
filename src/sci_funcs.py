@@ -28,7 +28,7 @@ def p2cs(args, uuid):
 
     try:
         result = future.result(timeout=60)
-        print(f"P2CS Results: \n{result.stdout}", flush=True)
+        print(f"Stdout: \n{result.stdout}", flush=True)
         cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
         if cln_stderr.strip():
             print(f"Stderr: {cln_stderr}", flush=True)
