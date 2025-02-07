@@ -58,7 +58,7 @@ if __name__ == "__main__":
     args = get_args()
 
     sci_funcs = {"that": p2cs, "neat": c2cs, "this": pub, "swell": con}
-    mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt}
+    mini_funcs = {"dist": daq, "dist": dist, "sirt": sirt}
 
     #scistream
     sci = {}

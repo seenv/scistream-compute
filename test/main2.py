@@ -2,8 +2,8 @@ import argparse
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
-from sci_funcs import p2cs, c2cs, pub, con
-from mini_funcs import daq, dist, sirt
+from sci_funcs2 import p2cs, c2cs, pub, con
+from mini_funcs2 import daq, dist, sirt
 
 
 def get_args():
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     args = get_args()
 
     sci_funcs = {"that": p2cs, "neat": c2cs, "this": pub, "swell": con}
-    mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt}
+    mini_funcs = {"dist": daq, "dist": dist, "sirt": sirt}
 
     #scistream
     sci = {}

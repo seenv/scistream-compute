@@ -50,17 +50,22 @@ def c2cs(args, uuid):
     from datetime import datetime
     import sys, socket, time, os
 
-    command =   f"""
-                timeout 60 bash -c '
-                echo "C2CS ---------------------------------"
-                nohup s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type} > /tmp/c2cs.log 2>&1 &
+    command = f"""
+                bash -c '
+                echo "Starting C2CS ---------------------------------"
+                nohup stdbuf -oL s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type} > /tmp/c2cs.log 2>&1 &
                 echo $! > /tmp/c2cs.pid
-                echo "S2CS PID in C2CS is " $!
+                echo "S2CS PID in C2CS is $(cat /tmp/c2cs.pid)"
+                tail -f /tmp/c2cs.log &
+                echo $! > /tmp/tail.pid
                 sleep 50
+                echo "Stopping C2CS..."
+                kill -9 $(cat /tmp/tail.pid) 
+                rm -f /tmp/tail.pid
                 kill -9 $(cat /tmp/c2cs.pid)
                 rm -f /tmp/c2cs.pid
-                cat /tmp/c2cs.log
-                echo "C2CS ---------------------------------" '
+                echo "Killing C2CS ---------------------------------"
+                '
                 """
 
     shell_function = ShellFunction(command, walltime=60)
@@ -69,11 +74,13 @@ def c2cs(args, uuid):
         future = gce.submit(shell_function)
 
         try:
-            result = future.result(timeout=60)
-            print(f"Stdout: \n{result.stdout}", flush=True)
-            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            if cln_stderr.strip():
-                print(f"Stderr: {cln_stderr}", flush=True)
+            print("Waiting for real-time logs...\n")
+
+            # ✅ Fetch the final output after completion
+            result = future.result()
+            print("\nTask completed successfully!")
+            print(f"Final Stdout:\n{result.stdout}", flush=True)
+
         except Exception as e:
             print(f"Task failed: {e}")
 
@@ -91,9 +98,9 @@ def pub(args, uuid):
     command =   f"""
                 timeout 60 bash -c '
                 sleep 5
-                s2uc prod-req --s2cs {args.p2cs_listener}:{args.sync_port} --mock True > /tmp/p2us.log 2>&1 &
+                s2uc prod-req --s2cs {args.p2cs_listener}:{args.sync_port} --mock True &
                 sleep 5
-                appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.p2cs_listener}:{args.sync_port} INVALID_TOKEN PROD {args.prod_ip}  > /tmp/appctrl.log 2>&1 '
+                appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.p2cs_listener}:{args.sync_port} INVALID_TOKEN PROD {args.prod_ip}  '
                 """
     
     shell_function = ShellFunction(command, walltime=60)
@@ -126,9 +133,9 @@ def con(args, uuid):
     command =   f"""
                 timeout 60 bash -c '
                 sleep 15
-                s2uc cons-req --s2cs {args.c2cs_listener}:{args.sync_port} 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.p2cs_ip}:5074 > /tmp/c2us.log 2>&1 &
+                s2uc cons-req --s2cs {args.c2cs_listener}:{args.sync_port} 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.p2cs_ip}:5074 &
                 sleep 5
-                appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.c2cs_listener}:{args.sync_port} INVALID_TOKEN PROD {args.p2cs_ip} > /tmp/appctrl.log 2>&1 '
+                appctrl mock 4f8583bc-a4d3-11ee-9fd6-034d1fcbd7c3 {args.c2cs_listener}:{args.sync_port} INVALID_TOKEN PROD {args.p2cs_ip} '
                 """
 
     shell_function = ShellFunction(command, walltime=60)

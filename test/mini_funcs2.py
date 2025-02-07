@@ -12,21 +12,21 @@ def daq (args, uuid):
     command =   f"""
             bash -c '
             timeout 60 
-            docker-compose -f /home/seena/mini/docker-compose-daq.yaml up daq > /tmp/daq.log 2>&1 &'
+            docker-compose -f /home/seena/mini/docker-compose.yaml up daq '
             """
 
     shell_function = ShellFunction(command, walltime=60)
     with Executor(endpoint_id=uuid) as gce:
         future = gce.submit(shell_function)
 
-        try:
-            result = future.result(timeout=60)
-            print(f"StdoutL \n{result.stdout}", flush=True)
-            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            if cln_stderr.strip():
-                print(f"Stderr: \n{cln_stderr}", flush=True)
-        except Exception as e:
-            print(f"Task failed: {e}")
+    try:
+        result = future.result(timeout=60)
+        print(f"StdoutL \n{result.stdout}", flush=True)
+        cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+        if cln_stderr.strip():
+            print(f"Stderr: \n{cln_stderr}", flush=True)
+    except Exception as e:
+        print(f"Task failed: {e}")
 
 
 def dist(args, uuid):
@@ -43,7 +43,7 @@ def dist(args, uuid):
     command =   f"""
             bash -c '
             timeout 60 
-            docker-compose -f /home/seena/mini/docker-compose-dist.yaml up dist > /tmp/dist.log 2>&1 & '
+            docker-compose -f /home/seena/mini/docker-compose.yaml up  '
             """
 
     shell_function = ShellFunction(command, walltime=60)
@@ -51,14 +51,14 @@ def dist(args, uuid):
     with Executor (endpoint_id=uuid) as gce:
         future = gce.submit(shell_function)
 
-        try:
-            result = future.result(timeout=60)
-            print(f"stdout: \n{result.stdout}", flush=True)
-            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            if cln_stderr.strip():
-                print("Stderr: \n{cln_stderr}", flush=True)
-        except Exception as e:
-            print(f"Task failed: {e}")
+    try:
+        result = future.result(timeout=60)
+        print(f"stdout: \n{result.stdout}", flush=True)
+        cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+        if cln_stderr.strip():
+            print("Stderr: \n{cln_stderr}", flush=True)
+    except Exception as e:
+        print(f"Task failed: {e}")
 
 
 def sirt(args, uuid):
@@ -75,18 +75,18 @@ def sirt(args, uuid):
     command =   f"""
                 bash -c '
                 timeout 60 
-                docker-compose -f /home/seena/mini/docker-compose.yaml up > /tmp/sirt.log 2>&1 & '
+                docker-compose -f /home/seena/mini/docker-compose.yaml up '
                 """
 
     shell_function = ShellFunction(command, walltime=60)
     with Executor(endpoint_id=uuid) as gce:
         future = gce.submit(shell_function)
 
-        try:
-            result = future.result(timeout=60)
-            print(f"stdout: \n{result.stdout}", flush=True)
-            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            if cln_stderr.strip():
-                print(f"Stderr: \n{cln_stderr}", flush=True)
-        except Exception as e:
-            print(f"Task failed: {e}")
+    try:
+        result = future.result(timeout=60)
+        print(f"stdout: \n{result.stdout}", flush=True)
+        cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+        if cln_stderr.strip():
+            print(f"Stderr: \n{cln_stderr}", flush=True)
+    except Exception as e:
+        print(f"Task failed: {e}")
