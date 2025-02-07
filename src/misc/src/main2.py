@@ -52,28 +52,15 @@ def get_uuid(client, name):
     return None
 
 
+
+
+
 if __name__ == "__main__":
 
     gcc = Client()
     args = get_args()
 
-    sci_funcs = {"that": p2cs, "neat": c2cs, "this": pub, "swell": con}
-    mini_funcs = {"dist": daq, "dist": dist, "sirt": sirt}
-
-    #scistream
-    sci = {}
-    # iterate over sci_funcs (keys = endpoint names, values = functions)
-    for sci_ep, func in sci_funcs.items():
-        uuid = get_uuid(gcc, sci_ep)
-        thread = threading.Thread(target=func, args=(args, uuid), daemon=True)
-        sci[thread] = sci_ep
-
-    for thread in sci:
-        thread.start()
-
-    for thread in sci:
-        thread.join()
-        print(f"Task Execution on Endpoint '{sci[thread]}' has Finished")  
+    mini_funcs = {"dist": dist, "sirt": sirt}
 
     # mini-aps
     mini = {}
@@ -88,4 +75,3 @@ if __name__ == "__main__":
     for thread in mini:
         thread.join()
         print(f"Task Execution on Endpoint '{mini[thread]}' has Finished")
-

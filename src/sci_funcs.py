@@ -12,12 +12,12 @@ def p2cs(args, uuid):
                 timeout 60 bash -c '
                 echo "P2CS ---------------------------------"
                 nohup s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} > /tmp/p2cs.log 2>&1 &
-                tail -f /tmp/p2cs.log &
                 echo $! > /tmp/p2cs.pid
                 echo "S2CS PID in P2CS is " $!
                 sleep 50
                 kill -9 $(cat /tmp/p2cs.pid)
                 rm -f /tmp/p2cs.pid
+                cat /tmp/p2cs.log
                 echo "P2CS ---------------------------------" '
                 """
 
