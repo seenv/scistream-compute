@@ -103,12 +103,12 @@ def pub(args, uuid):
 
         try:
             result = future.result(timeout=60)
-            print("PROD ---------------------------------")
+            #print("PROD ---------------------------------")
             print(f"Stdout: \n{result.stdout}")
             cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
             if cln_stderr.strip():
                 print(f"Stderr: {cln_stderr}", flush=True)
-            print("PROD ---------------------------------")
+            #print("PROD ---------------------------------")
         except Exception as e:
             print(f"Task failed: {e}")
 
@@ -138,12 +138,12 @@ def con(args, uuid):
 
         try:
             result = future.result(timeout=60)
-            print("CONS ---------------------------------")
+            #print("CONS ---------------------------------")
             print(f"Stdout: \n{result.stdout}")
             cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
             if cln_stderr.strip():
                 print(f"Stderr: {cln_stderr}", flush=True)
-            print("CONS ---------------------------------")
+            #print("CONS ---------------------------------")
         except Exception as e:
             print(f"Task failed: {e}")
 
