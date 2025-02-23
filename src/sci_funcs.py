@@ -13,9 +13,11 @@ def p2cs(args, uuid, result_q):
     import sys, socket, time, os
     import queue, ast, re
 
+    
+
     command =   f"""
                 timeout 60 bash -c '
-                s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} > /tmp/p2cs.log &
+                #s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} &
 
                 if [ -n "$HAPROXY_CONFIG_PATH" ] && [ -s "$HAPROXY_CONFIG_PATH/resource.map" ]; then
                     CONFIG_FILE="$HAPROXY_CONFIG_PATH/resource.map"
@@ -28,6 +30,11 @@ def p2cs(args, uuid, result_q):
                 cat "$CONFIG_FILE"
                 '
                 """
+                #s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type}
+                #s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} | tee /tmp/p2cs.log | tail -f /tmp/p2cs.log &
+                #s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} > /tmp/p2cs.log | tail -f /tmp.p2cs.log &
+                #s2cs --verbose --port=5000 --listener-ip=128.135.24.119 --type="StunnelSubprocess" > /tmp/p2cs.log &
+                #cat "$SCISTREAM_RSS_MAP"
 
     shell_function = ShellFunction(command, walltime=60)
 
@@ -35,30 +42,30 @@ def p2cs(args, uuid, result_q):
         future = gce.submit(shell_function)
 
         try:
-            uid_val, sync_val, lstn_val = None, None, None
+            stream_uid, p2cs_sync, lstn_val = None, None, None
 
             while not future.done(): 
                 result = future.result() 
                 lines = result.stdout.strip().split("\n")
 
                 for line in lines:
-                    if "Sync Port:" in line and sync_val is None:
+                    if "Sync Port:" in line and p2cs_sync is None:
                         try:
-                            sync_val = line.split()[2]
-                            result_q.put(("sync", sync_val))
-                            print(f"Found Sync: {sync_val}")
+                            p2cs_sync = line.split()[2]
+                            result_q.put(("sync", p2cs_sync))
+                            print(f"Found Sync: {p2cs_sync}")
                         except (IndexError, ValueError):
                             print("can't extract Sync Port from the Resource Map:", line)
 
-                    elif "Request UID" in line  and uid_val is None:
+                    elif "Request UID" in line  and stream_uid is None:
                         try:
-                            uid_val = line.split()[2]
-                            result_q.put(("uuid", uid_val))
-                            print(f"Found Key: {uid_val}")
+                            stream_uid = line.split()[2]
+                            result_q.put(("uuid", stream_uid))
+                            print(f"Found Key: {stream_uid}")
                         except IndexError:
                             print("can't extract UUID:", line)
 
-                    if "Listeners:" in line and lstn_val is None:
+                    elif "Listeners:" in line and lstn_val is None:
                         try:
                             # Extract everything inside brackets using regex
                             match = re.search(r"\[([^\]]+)\]", line)
@@ -74,12 +81,12 @@ def p2cs(args, uuid, result_q):
                         except (SyntaxError, ValueError) as e:
                             print(f"Can't parse the ports: {e} | in the line: {line}")
 
-                #if uid_val and lstn_val and sync_val:
-                if uid_val and lstn_val:
+                #if stream_uid and lstn_val and p2cs_sync:
+                if stream_uid and lstn_val:
                     break
 
-                time.sleep(1) 
-            #print(result.stdout, flush=True)
+                time.sleep(1)  
+            print(result.stdout, flush=True)
 
         except Exception as e:
             print(f"Task failed: {e}")
@@ -133,7 +140,7 @@ def conin(args, uuid, result_q):
     command =   f"""
                 timeout 60 bash -c '
                 sleep 5
-                s2uc inbound-request --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 > /tmp/conin.log & '
+                s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:{5000} > /tmp/conin.log & '
                 """
                 #s2uc inbound-request --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 &
 

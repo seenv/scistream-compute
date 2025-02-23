@@ -2,7 +2,7 @@ import argparse
 import threading, queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
-from sci_funcs1 import p2cs, c2cs, conin, conout
+from sci_funcs import p2cs, c2cs, conin, conout
 from mini_funcs import daq, dist, sirt
 
 
@@ -46,7 +46,7 @@ def get_uuid(client, name):
             endpoint_name = ep.get('name', '').strip()
             if endpoint_name == name.strip().lower():
                 #print(f"DEBUG:EndPoint: {name} with UUID: {ep.get('uuid')}")
-                get_ep_stat(client, ep.get('uuid'), str(name))
+                #get_ep_stat(client, ep.get('uuid'), str(name))
                 return ep.get('uuid')
     except Exception as e:
         print(f"error fetching {name}: {str(e)}")
@@ -76,6 +76,7 @@ if __name__ == "__main__":
     #scistream
     inbound, outbound = {}, {}
     results_queue = queue.Queue()   # queue to store results
+    stream_uid, p2cs_sync, outbound_ports = None, None, None
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
     for sci_ep, func in inbound_sync.items():
@@ -85,31 +86,30 @@ if __name__ == "__main__":
         #threads.append(thread)
         thread.start()
     
-    scistream_uuid, sync_ports, port_list = None, None, None
     while any(t.is_alive() for t in inbound):
         while not results_queue.empty():
             key, value = results_queue.get()
             if key =="uuid":
-                scistream_uuid = value
+                stream_uid = value
             elif key == "sync":
-                sync_ports = value
+                p2cs_sync = value
             elif key == "ports":
-                port_list = value
+                outbound_ports = value
 
-    # check if all inbounds are finished
+    # check if all endpoints are finished
     for thread, sci_ep in inbound.items():
         thread.join()
         print(f"Task Execution on Endpoint '{sci_ep}' has Finished") 
 
     # Ensure all necessary values are set before proceeding
-    if scistream_uuid is None or port_list is None:
+    if stream_uid is None or outbound_ports is None:
         print("Error: Required values missing. Exiting.")
         exit(1)
 
     # Start Outbound Threads
     for sci_ep, func in outbound_sync.items():
         uuid = get_uuid(gcc, sci_ep)
-        thread = threading.Thread(target=func, args=(args, uuid, scistream_uuid, port_list, results_queue), daemon=True)
+        thread = threading.Thread(target=func, args=(args, uuid, stream_uid, outbound_ports, results_queue), daemon=True)
         outbound[thread] = sci_ep
         thread.start()
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         uuid = get_uuid(gcc, sci_ep)
         thread = threading.Thread(
             target=func, 
-            args=(args, uuid, scistream_uuid, port_list, results_queue), 
+            args=(args, uuid, stream_uid, outbound_ports, results_queue), 
             daemon=True
         )
         outbound[thread] = sci_ep
