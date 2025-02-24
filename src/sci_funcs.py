@@ -26,12 +26,13 @@ def p2cs(args, endpoint_name, uuid, result_q):
                     rm -f "$CONFIG_PATH/resource.map"
                 fi
 
-                setsid s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log &
+                setsid stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log &
                 
                 while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
                     sleep 1
                 done
-                cat "$CONFIG_PATH/resource.map"  
+                cat "$CONFIG_PATH/resource.map"
+                sleep 10 
                 '
                 """
                 #s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} 2>&1 &
@@ -118,7 +119,7 @@ def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
                     CONFIG_PATH="/tmp/.scistream"
                 fi
 
-                setsid s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log &
+                setsid stdbuf -oL -eL s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log &
                 '
                 """
 
@@ -161,6 +162,7 @@ def conin(args, endpoint_name, uuid, result_q):
 
                 sleep 5
                 s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000 > $CONFIG_PATH/conin.log & 
+                sleep 10
                 '
                 """
                 #s2uc inbound-request --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 &
