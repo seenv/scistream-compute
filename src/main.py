@@ -56,8 +56,8 @@ def get_uuid(client, name):
 
 def wrapper(func, args, uuid, results_queue, sci_ep):
     """ Wrapper function to capture function output inside a thread """
-    key = func(args, uuid)  # Run the function
-    results_queue.put((sci_ep, key))  # Store the result in the queue
+    key = func(args, uuid) 
+    results_queue.put((sci_ep, key))
 
 
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     # iterate over sci_funcs (keys = endpoint names, values = functions)
     for sci_ep, func in inbound_sync.items():
         uuid = get_uuid(gcc, sci_ep)
-        thread = threading.Thread(target=func, args=(args, uuid, results_queue), daemon=True)
+        thread = threading.Thread(target=func,  args=(args, sci_ep, uuid, results_queue), daemon=True)
         inbound[thread] = sci_ep
         #threads.append(thread)
         thread.start()
@@ -91,8 +91,8 @@ if __name__ == "__main__":
             key, value = results_queue.get()
             if key =="uuid":
                 stream_uid = value
-            elif key == "sync":
-                p2cs_sync = value
+            #elif key == "sync":
+            #    p2cs_sync = value
             elif key == "ports":
                 outbound_ports = value
 
@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     # Ensure all necessary values are set before proceeding
     if stream_uid is None or outbound_ports is None:
-        print("Error: Required values missing. Exiting.")
+        print(f"Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
         exit(1)
 
     # Start Outbound Threads

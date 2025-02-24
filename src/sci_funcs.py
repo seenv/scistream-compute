@@ -2,7 +2,7 @@
 
 
 
-def p2cs(args, uuid, result_q):
+def p2cs(args, endpoint_name, uuid, result_q):
 
     from globus_compute_sdk import Executor, ShellFunction, Client
     from globus_compute_sdk.sdk.executor import ComputeFuture
@@ -16,21 +16,25 @@ def p2cs(args, uuid, result_q):
     
 
     command =   f"""
-                timeout 60 bash -c '
-                #s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} &
-
-                if [ -n "$HAPROXY_CONFIG_PATH" ] && [ -s "$HAPROXY_CONFIG_PATH/resource.map" ]; then
-                    CONFIG_FILE="$HAPROXY_CONFIG_PATH/resource.map"
-                else
-                    CONFIG_FILE="/tmp/.scistream/resource.map"
+                bash -c '
+                if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                else 
+                    CONFIG_PATH="/tmp/.scistream"
                 fi
-                while ! grep -q "Prod Listeners:" "$CONFIG_FILE"; do
+                if [[ -s "$CONFIG_PATH/resource.map" ]]; then
+                    rm -f "$CONFIG_PATH/resource.map"
+                fi
+
+                stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log &
+                
+                while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
                     sleep 1
                 done
-                cat "$CONFIG_FILE"
+                cat "$CONFIG_PATH/resource.map"  
                 '
                 """
-                #s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type}
+                #s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} 2>&1 &
                 #s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} | tee /tmp/p2cs.log | tail -f /tmp/p2cs.log &
                 #s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} > /tmp/p2cs.log | tail -f /tmp.p2cs.log &
                 #s2cs --verbose --port=5000 --listener-ip=128.135.24.119 --type="StunnelSubprocess" > /tmp/p2cs.log &
@@ -49,19 +53,19 @@ def p2cs(args, uuid, result_q):
                 lines = result.stdout.strip().split("\n")
 
                 for line in lines:
-                    if "Sync Port:" in line and p2cs_sync is None:
+                    """if "Sync Port:" in line and p2cs_sync is None:
                         try:
                             p2cs_sync = line.split()[2]
                             result_q.put(("sync", p2cs_sync))
                             print(f"Found Sync: {p2cs_sync}")
                         except (IndexError, ValueError):
-                            print("can't extract Sync Port from the Resource Map:", line)
+                            print("can't extract Sync Port from the Resource Map:", line)"""
 
-                    elif "Request UID" in line  and stream_uid is None:
+                    if "Request UID" in line  and stream_uid is None:
                         try:
                             stream_uid = line.split()[2]
                             result_q.put(("uuid", stream_uid))
-                            print(f"Found Key: {stream_uid}")
+                            print(f"Scistream UUID: {stream_uid}")
                         except IndexError:
                             print("can't extract UUID:", line)
 
@@ -74,19 +78,20 @@ def p2cs(args, uuid, result_q):
                                 # Extract only port numbers and remove extra quotes
                                 lstn_val = [entry.split(":")[-1].strip("'").strip('"') for entry in raw_list.split(", ")]
                                 result_q.put(("ports", lstn_val))
-                                print(f"Found Ports: {', '.join(lstn_val)}") 
+                                print(f"P2CS is Listening to Ports: {', '.join(lstn_val)}") 
                             else:
                                 print("Listeners format is incorrect:", line)
 
                         except (SyntaxError, ValueError) as e:
                             print(f"Can't parse the ports: {e} | in the line: {line}")
 
+
                 #if stream_uid and lstn_val and p2cs_sync:
                 if stream_uid and lstn_val:
                     break
 
                 time.sleep(1)  
-            print(result.stdout, flush=True)
+            #print(result.stdout, flush=True)
 
         except Exception as e:
             print(f"Task failed: {e}")
@@ -106,8 +111,14 @@ def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
     import sys, socket, time, os
 
     command =   f"""
-                timeout 60 bash -c '
-                s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type} > /tmp/c2cs.log &
+                bash -c '
+                if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                else 
+                    CONFIG_PATH="/tmp/.scistream"
+                fi
+
+                s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log & 
                 '
                 """
 
@@ -129,7 +140,7 @@ def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
 
 
 
-def conin(args, uuid, result_q):
+def conin(args, endpoint_name, uuid, result_q):
     
     import time
     from globus_compute_sdk import Executor, Client, ShellFunction
@@ -139,10 +150,21 @@ def conin(args, uuid, result_q):
 
     command =   f"""
                 timeout 60 bash -c '
+                if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                else 
+                    CONFIG_PATH="/tmp/.scistream"
+                fi
+                if [[ ! -d "$CONFIG_PATH" ]]; then
+                    mkdir -p "$CONFIG_PATH"
+                fi
+
                 sleep 5
-                s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:{5000} > /tmp/conin.log & '
+                s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000 > $CONFIG_PATH/conin.log & 
+                '
                 """
                 #s2uc inbound-request --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 &
+                #s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000 > /tmp/conin.log & '
 
     shell_function = ShellFunction(command, walltime=60)
 
@@ -172,10 +194,20 @@ def conout(args, uuid, scistream_uuid, port_list, results_queue):
 
     print(f" the uuid should not be null: {scistream_uuid}")
 
+    first_port = port_list[0]
+
     command =   f"""
                 timeout 60 bash -c '
+                if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                else 
+                    CONFIG_PATH="/tmp/.scistream"
+                fi
+                if [[ ! -d "$CONFIG_PATH" ]]; then
+                    mkdir -p "$CONFIG_PATH"
+                fi
                 sleep 5
-                s2uc outbound-request --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000  {scistream_uuid}  --receiver_ports=5100 128.135.164.119:5100  > /tmp/conout.log & '
+                s2uc outbound-request --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:5000  {scistream_uuid}  --receiver_ports={first_port} {args.p2cs_ip}:{first_port}  > $CONFIG_PATH/conout.log & '
                 """
                 #s2uc outbound-request --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000 d1d55174-eefd-11ef-ae06-aee3018ac00c --receiver_ports=5100  128.135.164.119:5100  &
                 #s2uc outbound-request --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:{args.sync_port} --receiver_ports {port_list[0]} {scistream_uuid}  {args.p2cs_ip}:{port_list[0]}  > /tmp/c2uc.log 2>&1 '
@@ -358,3 +390,96 @@ gcc.batch_run(batch)
                 STUNNEL_PPID=$(ps -o ppid= -p $STUNNEL_PID | tr -d " ") && stdbuf -oL echo "stunnel ppid in p2cs is : which is not working properly" $STUNNEL_PPID
                 cat /tmp/p2cs.log
     """
+
+
+
+
+
+
+
+
+
+
+"""working version for resource.map
+
+
+                timeout 60 bash -c '
+                stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} &
+
+                if [ -n "$HAPROXY_CONFIG_PATH" ] && [ -s "$HAPROXY_CONFIG_PATH/resource.map" ]; then
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH/resource.map"
+                else
+                    CONFIG_PATH="/tmp/.scistream/resource.map"
+                fi
+                while ! grep -q "Prod Listeners:" "$CONFIG_PATH"; do
+                    sleep 1
+                done
+                cat "$CONFIG_PATH"
+                sleep 5
+                rm -f $CONFIG_PATH
+
+if "Sync Port:" in line and p2cs_sync is None:
+                        try:
+                            p2cs_sync = line.split()[2]
+                            result_q.put(("sync", p2cs_sync))
+                            print(f"Found Sync: {p2cs_sync}")
+                        except (IndexError, ValueError):
+                            print("can't extract Sync Port from the Resource Map:", line) doubel check this one!!!
+
+
+                        if "Request UID" in line  and stream_uid is None:
+                        try:
+                            stream_uid = line.split()[2]
+                            result_q.put(("uuid", stream_uid))
+                            print(f"Found Key: {stream_uid}")
+                        except IndexError:
+                            print("can't extract UUID:", line)
+
+                    elif "Listeners:" in line and lstn_val is None:
+                        try:
+                            # Extract everything inside brackets using regex
+                            match = re.search(r"\[([^\]]+)\]", line)
+                            if match:
+                                raw_list = match.group(1)  # Extract content inside brackets
+                                # Extract only port numbers and remove extra quotes
+                                lstn_val = [entry.split(":")[-1].strip("'").strip('"') for entry in raw_list.split(", ")]
+                                result_q.put(("ports", lstn_val))
+                                print(f"Found Ports: {', '.join(lstn_val)}") 
+                            else:
+                                print("Listeners format is incorrect:", line)
+
+                        except (SyntaxError, ValueError) as e:
+                            print(f"Can't parse the ports: {e} | in the line: {line}")"""
+
+
+
+"""working version for logfile:
+
+
+                stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose --listener-ip={args.p2cs_listener} --type={args.type} 
+
+
+
+                    if "req started, with request uid:" in line and stream_uid is None:
+                        match = re.search(r'uid:\s*"([a-f0-9-]+)"', line)
+                        if match:
+                            stream_uid = match.group(1)
+                            result_q.put(("uuid", stream_uid))
+                            print(f"Found Key ehich is the uid: {stream_uid}")
+                        else:
+                            print("Can't extract UUID:", line)
+
+
+                    elif "Available ports:" in line and lstn_val is None:
+                        # Extract everything inside brackets using regex
+                        match = re.search(r"\[([^\]]+)\]", line)
+                        if match:
+                            raw_list = match.group(1)  # Extract content inside brackets
+                            # Extract only port numbers and remove extra quotes
+                            lstn_val = [entry.strip() for entry in raw_list.split(", ")]
+                            result_q.put(("ports", lstn_val))
+                            print(f"Found Ports: {', '.join(lstn_val)}") 
+                        else:
+                            print("Listeners format is incorrect:", line)
+
+"""
