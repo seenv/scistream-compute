@@ -26,7 +26,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
                     rm -f "$CONFIG_PATH/resource.map"
                 fi
 
-                stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log &
+                setsid s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log &
                 
                 while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
                     sleep 1
@@ -118,7 +118,7 @@ def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
                     CONFIG_PATH="/tmp/.scistream"
                 fi
 
-                s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log & 
+                setsid s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log &
                 '
                 """
 
@@ -128,7 +128,7 @@ def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
         future = gce.submit(shell_function)
 
         try:
-            result = future.result(timeout=60)
+            result = future.result()
             print(f"Stdout: \n{result.stdout}", flush=True)
             cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
             if cln_stderr.strip():
