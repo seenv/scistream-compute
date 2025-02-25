@@ -1,5 +1,5 @@
 import argparse
-import threading, queue
+import threading, queue, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
 from sci_funcs import p2cs, c2cs, conin, conout
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         #threads.append(thread)
         thread.start()
     
-    while any(t.is_alive() for t in inbound):
+    """while any(t.is_alive() for t in inbound):
         while not results_queue.empty():
             key, value = results_queue.get()
             if key =="uuid":
@@ -94,22 +94,37 @@ if __name__ == "__main__":
             #elif key == "sync":
             #    p2cs_sync = value
             elif key == "ports":
-                outbound_ports = value
+                outbound_ports = value"""
+
+    # Ensure all necessary values are set before proceeding
+    print("\nWaiting for the scistream uid and outbound ports to be received")
+    while not stream_uid or not outbound_ports:
+        key, value = results_queue.get()
+        if key =="uuid":
+            stream_uid = value
+            print(f"\nstream_uid: {stream_uid}")
+        #elif key == "sync":
+        #    p2cs_sync = value
+        elif key == "ports":
+            outbound_ports = value
+            print(f"\noutbound_ports: {outbound_ports}")
+        time.sleep(1)
+    
+    print(f"\nwill start the outbound process with {stream_uid} and {outbound_ports}")
 
     # check if all endpoints are finished
     for thread, sci_ep in inbound.items():
         thread.join()
         print(f"Task Execution on Endpoint '{sci_ep}' has Finished") 
 
-    # Ensure all necessary values are set before proceeding
-    if stream_uid is None or outbound_ports is None:
-        print(f"Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
-        exit(1)
+    #if stream_uid is None or outbound_ports is None:
+    #    print(f"Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
+    #    exit(1)
 
     # Start Outbound Threads
     for sci_ep, func in outbound_sync.items():
         uuid = get_uuid(gcc, sci_ep)
-        thread = threading.Thread(target=func, args=(args, uuid, stream_uid, outbound_ports, results_queue), daemon=True)
+        thread = threading.Thread(target=func, args=(args, sci_ep, uuid, stream_uid, outbound_ports, results_queue), daemon=True)
         outbound[thread] = sci_ep
         thread.start()
 
@@ -122,8 +137,8 @@ if __name__ == "__main__":
 
 
 
-"""
-    # iterate over sci_funcs (keys = endpoint names, values = functions)
+
+    """# iterate over sci_funcs (keys = endpoint names, values = functions)
     for sci_ep, func in outbound_sync.items():
         uuid = get_uuid(gcc, sci_ep)
         thread = threading.Thread(
@@ -132,10 +147,10 @@ if __name__ == "__main__":
             daemon=True
         )
         outbound[thread] = sci_ep
-        threads2.append(thread)
-"""
-"""
-    # mini-aps
+        threads2.append(thread)"""
+
+
+    """# mini-aps
     mini = {}
     for mini_ep, func in mini_funcs.items():
         uuids = get_uuid(gcc, mini_ep)

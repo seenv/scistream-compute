@@ -18,31 +18,46 @@ def p2cs(args, endpoint_name, uuid, result_q):
     command =   f"""
                 bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
-                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH" && mkdir -p "$CONFIG_PATH"
                 else 
-                    CONFIG_PATH="/tmp/.scistream"
+                    CONFIG_PATH="/tmp/.scistream" && mkdir -p "$CONFIG_PATH"
                 fi
-                if [[ -s "$CONFIG_PATH/resource.map" ]]; then
-                    rm -f "$CONFIG_PATH/resource.map"
-                fi
-
-                setsid stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log &
-                
-                while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
-                    sleep 1
-                done
+                setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener_ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log  &
                 cat "$CONFIG_PATH/resource.map"
-                sleep 10 
                 '
                 """
-                #s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} 2>&1 &
+                #the correct command: s2cs --server_crt=/home/seena/scistream/server.crt --server_key=/home/seena/scistream/server.key --verbose  --listener_ip=128.135.24.119 --type="StunnelSubprocess"
+                #s2cs --server_cert="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} 2>&1 &
                 #s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} | tee /tmp/p2cs.log | tail -f /tmp/p2cs.log &
                 #s2cs --verbose --port={args.sync_port} --listener-ip={args.p2cs_listener} --type={args.type} > /tmp/p2cs.log | tail -f /tmp.p2cs.log &
                 #s2cs --verbose --port=5000 --listener-ip=128.135.24.119 --type="StunnelSubprocess" > /tmp/p2cs.log &
                 #cat "$SCISTREAM_RSS_MAP"
 
-    shell_function = ShellFunction(command, walltime=60)
+                #   if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
+                #    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                #else 
+                #    CONFIG_PATH="/tmp/.scistream"
+                #fi
+                #if [[ -s "$CONFIG_PATH/resource.map" ]]; then
+                #    rm -f "$CONFIG_PATH/resource.map"
+                #fi
 
+                #setsid stdbuf -oL -eL s2cs --server_cert="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log &
+                
+                #while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
+                #    sleep 1
+                #done
+                #cat "$CONFIG_PATH/resource.map
+
+
+
+                #CONFIG_PATH="${{HAPROXY_CONFIG_PATH:-/tmp/.scistream}}" && echo "HAPROXY_CONFIG_PATH is: $HAPROXY_CONFIG_PATH"
+                #while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
+                #    sleep 1
+                #done
+
+    shell_function = ShellFunction(command, walltime=60)
+    print(f"\nStarting the Producer's S2CS on endpoint ({endpoint_name}) with the following args:\n {args}\n", flush=True)
     with Executor(endpoint_id=uuid) as gce:
         future = gce.submit(shell_function)
 
@@ -66,7 +81,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
                         try:
                             stream_uid = line.split()[2]
                             result_q.put(("uuid", stream_uid))
-                            print(f"Scistream UUID: {stream_uid}")
+                            print(f"The captured scistream uid from the resource map is: {stream_uid}")
                         except IndexError:
                             print("can't extract UUID:", line)
 
@@ -79,7 +94,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
                                 # Extract only port numbers and remove extra quotes
                                 lstn_val = [entry.split(":")[-1].strip("'").strip('"') for entry in raw_list.split(", ")]
                                 result_q.put(("ports", lstn_val))
-                                print(f"P2CS is Listening to Ports: {', '.join(lstn_val)}") 
+                                print(f"The captured scistream listen ports from the resource map: {', '.join(lstn_val)}") 
                             else:
                                 print("Listeners format is incorrect:", line)
 
@@ -89,19 +104,20 @@ def p2cs(args, endpoint_name, uuid, result_q):
 
                 #if stream_uid and lstn_val and p2cs_sync:
                 if stream_uid and lstn_val:
+                    print(f"will exit from the loop in p2cs with values: {stream_uid}, {lstn_val}")
                     break
 
                 time.sleep(1)  
             #print(result.stdout, flush=True)
 
         except Exception as e:
-            print(f"Task failed: {e}")
+            print(f"Task failed on p2cs and I don't know why!!!: {e}")
             #return None  #None if no key is found
 
 
 
 
-def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
+def c2cs(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
 
     from globus_compute_sdk import Executor, ShellFunction, Client
     from globus_compute_sdk.sdk.executor import ComputeFuture
@@ -114,16 +130,23 @@ def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
     command =   f"""
                 bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
-                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH" && mkdir -p "$CONFIG_PATH"
                 else 
-                    CONFIG_PATH="/tmp/.scistream"
+                    CONFIG_PATH="/tmp/.scistream" && mkdir -p "$CONFIG_PATH"
                 fi
-
-                setsid stdbuf -oL -eL s2cs --verbose --port={args.sync_port} --listener-ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log &
+                setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener_ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log &
+                echo "Waiting for stunnel to start on c2cs"
+                while ! pgrep -x "stunnel" > /dev/null ; do  
+                     sleep 1
+                done
+                echo "stunnel started in the c2cs with PID: $(pgrep -x "stunnel")"
                 '
                 """
+                #the correct command: s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip=128.135.24.120 --type="StunnelSubprocess"
+
 
     shell_function = ShellFunction(command, walltime=60)
+    print(f"\nStarting the Consumer's S2CS on endpoint ({endpoint_name}) with the following args:\n {args}\n", flush=True)
 
     with Executor(endpoint_id=uuid) as gce:
         future = gce.submit(shell_function)
@@ -135,7 +158,7 @@ def c2cs(args, uuid, scistream_uuid, port_list, results_queue):
             if cln_stderr.strip():
                 print(f"Stderr: {cln_stderr}", flush=True)
         except Exception as e:
-            print(f"Task failed: {e}")
+            print(f"Task failed on c2cs and I don't know why!!!: {e}")
 
 
 
@@ -152,23 +175,19 @@ def conin(args, endpoint_name, uuid, result_q):
     command =   f"""
                 timeout 60 bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
-                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH" && mkdir -p "$CONFIG_PATH"
                 else 
-                    CONFIG_PATH="/tmp/.scistream"
+                    CONFIG_PATH="/tmp/.scistream" && mkdir -p "$CONFIG_PATH"
                 fi
-                if [[ ! -d "$CONFIG_PATH" ]]; then
-                    mkdir -p "$CONFIG_PATH"
-                fi
-
-                sleep 5
-                s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000 > $CONFIG_PATH/conin.log & 
-                sleep 10
+                setsid stdbuf -oL -eL s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000  > $CONFIG_PATH/conin.log &
                 '
                 """
+                #correct command: s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 #if you add receiver_ports it will only activate it on the mentioned port! --receiver_ports 5074
                 #s2uc inbound-request --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 &
                 #s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000 > /tmp/conin.log & '
 
     shell_function = ShellFunction(command, walltime=60)
+    print(f"\nStarting the Consumer's inbound connection on endpoint ({endpoint_name}) with the following args:\n {args}\n", flush=True)
 
     with Executor(endpoint_id=uuid) as gce:
         future = gce.submit(shell_function)
@@ -182,11 +201,11 @@ def conin(args, endpoint_name, uuid, result_q):
 
             
         except Exception as e:
-            print(f"Task failed: {e}")
+            print(f"Task failed on conin and I don't know why!!!: {e}")
 
 
 
-def conout(args, uuid, scistream_uuid, port_list, results_queue):
+def conout(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
     
     import time
     from globus_compute_sdk import Executor, Client, ShellFunction
@@ -194,27 +213,29 @@ def conout(args, uuid, scistream_uuid, port_list, results_queue):
     from datetime import datetime
     import sys, socket, queue
 
-    print(f" the uuid should not be null: {scistream_uuid}")
-
+    while port_list is None or scistream_uuid is None:
+        print(f"\nHaven't received the port_list and scistream_uuid in conout yet!")
+        time.sleep(1)
+    print(f"\nReceived the port_list {port_list} and scistream_uuid {scistream_uuid} in conout!")
     first_port = port_list[0]
 
     command =   f"""
                 timeout 60 bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
-                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH" && mkdir -p "$CONFIG_PATH"
                 else 
-                    CONFIG_PATH="/tmp/.scistream"
+                    CONFIG_PATH="/tmp/.scistream" && mkdir -p "$CONFIG_PATH" && echo "Config path is $CONFIG_PATH"
                 fi
-                if [[ ! -d "$CONFIG_PATH" ]]; then
-                    mkdir -p "$CONFIG_PATH"
-                fi
-                sleep 5
-                s2uc outbound-request --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:5000  {scistream_uuid}  --receiver_ports={first_port} {args.p2cs_ip}:{first_port}  > $CONFIG_PATH/conout.log & '
+                echo "s2uc outbound will start with the uid {scistream_uuid} and on the port {first_port}"
+                setsid stdbuf -oL -eL s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:5000  --receiver_ports={first_port} {scistream_uuid} {args.p2cs_ip}:{first_port}  > $CONFIG_PATH/conout.log &
+                '
                 """
-                #s2uc outbound-request --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000 d1d55174-eefd-11ef-ae06-aee3018ac00c --receiver_ports=5100  128.135.164.119:5100  &
-                #s2uc outbound-request --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:{args.sync_port} --receiver_ports {port_list[0]} {scistream_uuid}  {args.p2cs_ip}:{port_list[0]}  > /tmp/c2uc.log 2>&1 '
+                #correct command: s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000  --receiver_ports=5100 0cddc36c-f3b5-11ef-9275-aee3018ac00c 128.135.164.119:5100
+                #s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000 d1d55174-eefd-11ef-ae06-aee3018ac00c --receiver_ports=5100  128.135.164.119:5100  &
+                #s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:{args.sync_port} --receiver_ports {port_list[0]} {scistream_uuid}  {args.p2cs_ip}:{port_list[0]}  > /tmp/c2uc.log 2>&1 '
 
     shell_function = ShellFunction(command, walltime=60)
+    print(f"\nStarting the Consumer's outbound connection on endpoint ({endpoint_name}) with the following args:\n {args}\n", flush=True)
 
     with Executor(endpoint_id=uuid) as gce:
         future = gce.submit(shell_function)
@@ -228,7 +249,7 @@ def conout(args, uuid, scistream_uuid, port_list, results_queue):
 
             
         except Exception as e:
-            print(f"Task failed: {e}")
+            print(f"Task failed on conout and I don't know why!!!: {e}")
 
 
 
@@ -364,7 +385,7 @@ gcc.batch_run(batch)
 
 
 
-                    while ! pgrep -f "stunnel" > /dev/null; do
+                while ! pgrep -f "stunnel" > /dev/null; do
                     echo "waiting"
                     sleep 1
                 done
@@ -406,7 +427,7 @@ gcc.batch_run(batch)
 
 
                 timeout 60 bash -c '
-                stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} &
+                stdbuf -oL -eL s2cs --server_cert="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener-ip={args.p2cs_listener} --type={args.type} &
 
                 if [ -n "$HAPROXY_CONFIG_PATH" ] && [ -s "$HAPROXY_CONFIG_PATH/resource.map" ]; then
                     CONFIG_PATH="$HAPROXY_CONFIG_PATH/resource.map"
@@ -458,7 +479,7 @@ if "Sync Port:" in line and p2cs_sync is None:
 """working version for logfile:
 
 
-                stdbuf -oL -eL s2cs --server-crt="/home/seena/scistream/server.crt" --server-key="/home/seena/scistream/server.key" --verbose --listener-ip={args.p2cs_listener} --type={args.type} 
+                stdbuf -oL -eL s2cs --server_cert="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener-ip={args.p2cs_listener} --type={args.type} 
 
 
 
