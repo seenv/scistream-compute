@@ -97,29 +97,27 @@ if __name__ == "__main__":
                 outbound_ports = value"""
 
     # Ensure all necessary values are set before proceeding
-    print("\nWaiting for the scistream uid and outbound ports to be received")
-    while not stream_uid or not outbound_ports:
-        key, value = results_queue.get()
-        if key =="uuid":
-            stream_uid = value
-            print(f"\nstream_uid: {stream_uid}")
-        #elif key == "sync":
-        #    p2cs_sync = value
-        elif key == "ports":
-            outbound_ports = value
-            print(f"\noutbound_ports: {outbound_ports}")
-        time.sleep(1)
+    print("\nMAIN:     Waiting for the scistream uid and outbound ports to be received")
+    while any(t.is_alive() for t in inbound):
+        while not results_queue.empty():
+            key, value = results_queue.get()
+            if key =="uuid":
+                stream_uid = value
+            #elif key == "sync":
+            #    p2cs_sync = value
+            elif key == "ports":
+                outbound_ports = value
     
-    print(f"\nwill start the outbound process with {stream_uid} and {outbound_ports}")
+    print(f"\nMAIN:     Will start the outbound process with {stream_uid} and {outbound_ports}")
 
     # check if all endpoints are finished
     for thread, sci_ep in inbound.items():
         thread.join()
-        print(f"Task Execution on Endpoint '{sci_ep}' has Finished") 
+        print(f"MAIN:     Task Execution on Endpoint '{sci_ep}' has Finished") 
 
-    #if stream_uid is None or outbound_ports is None:
-    #    print(f"Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
-    #    exit(1)
+    if stream_uid is None or outbound_ports is None:
+        print(f"MAIN:     Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
+        exit(1)
 
     # Start Outbound Threads
     for sci_ep, func in outbound_sync.items():
@@ -131,7 +129,7 @@ if __name__ == "__main__":
     # Ensure all outbound tasks are finished
     for thread, sci_ep in outbound.items():
         thread.join()
-        print(f"Task Execution on Endpoint '{sci_ep}' has Finished")
+        print(f"MAIN:     Task Execution on Endpoint '{sci_ep}' has Finished")
 
 
 
