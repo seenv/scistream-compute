@@ -29,6 +29,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
                 while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
                     sleep 1
                 done
+                echo "P2CS:      Found the resource map file and the Prod Listeners in it"
                 cat "$CONFIG_PATH/resource.map"
                 sleep 10 '
                 """
@@ -110,7 +111,6 @@ def p2cs(args, endpoint_name, uuid, result_q):
 
                 #if stream_uid and lstn_val and p2cs_sync:
                 if stream_uid and lstn_val:
-                    print(f"P2CS:      Will exit from the loop in p2cs with values: {stream_uid}, {lstn_val}")
                     break
 
                 time.sleep(1)  
@@ -137,10 +137,11 @@ def c2cs(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
     command =   f"""
                 timeout 60 bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
-                    CONFIG_PATH="$HAPROXY_CONFIG_PATH" && mkdir -p "$CONFIG_PATH"
+                    CONFIG_PATH="$HAPROXY_CONFIG_PATH"
                 else 
-                    CONFIG_PATH="/tmp/.scistream" && mkdir -p "$CONFIG_PATH"
+                    CONFIG_PATH="/tmp/.scistream"
                 fi
+                mkdir -p "$CONFIG_PATH"
                 stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener_ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log &
                 echo "Waiting for stunnel to start on c2cs"
                 while ! pgrep -x "stunnel" > /dev/null ; do  
@@ -160,10 +161,10 @@ def c2cs(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
 
         try:
             result = future.result()
-            print(f"Stdout: \n{result.stdout}", flush=True)
-            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            if cln_stderr.strip():
-                print(f"Stderr: {cln_stderr}", flush=True)
+            #print(f"Stdout: \n{result.stdout}", flush=True)
+            #cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+            #if cln_stderr.strip():
+            #    print(f"Stderr: {cln_stderr}", flush=True)
         except Exception as e:
             print(f"C2CS:      Task failed on c2cs and I don't know why!!!: {e}")
         """finally:
@@ -191,10 +192,11 @@ def conin(args, endpoint_name, uuid, result_q):
                 mkdir -p "$CONFIG_PATH"
                 sleep 5
                 s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000  > $CONFIG_PATH/conin.log &
-                sleep 10 '
+                '
                 """
                 
-                #correct command: s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 #if you add receiver_ports it will only activate it on the mentioned port! --receiver_ports 5074
+                #correct command: s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000
+                #  --s2cs 128.135.164.119:5000 #if you add receiver_ports it will only activate it on the mentioned port! --receiver_ports 5074
                 #s2uc inbound-request --remote_ip 128.135.24.117 --s2cs 128.135.164.119:5000 &
                 #s2uc inbound-request --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000 > /tmp/conin.log & '
 
@@ -206,10 +208,10 @@ def conin(args, endpoint_name, uuid, result_q):
 
         try:
             result = future.result(timeout=60)
-            print(f"Stdout: \n{result.stdout}")
-            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            if cln_stderr.strip():
-                print(f"Stderr: {cln_stderr}", flush=True)
+            #print(f"Stdout: \n{result.stdout}")
+            #cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+            #if cln_stderr.strip():
+            #    print(f"Stderr: {cln_stderr}", flush=True)
 
         except Exception as e:
             print(f"CON IN:      Task failed on conin and I don't know why!!!: {e}")
@@ -248,7 +250,7 @@ def conout(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
                 echo "in bash of conout s2uc outbound will start with the uid {scistream_uuid} and on the port {first_port}"
                 sleep 5
                 s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:5000  --receiver_ports={first_port} {scistream_uuid} {args.p2cs_ip}:{first_port}  > $CONFIG_PATH/conout.log &
-                sleep 10 '
+                '
                 """
                 #correct command: s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000  --receiver_ports=5100 0cddc36c-f3b5-11ef-9275-aee3018ac00c 128.135.164.119:5100
                 #s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000 d1d55174-eefd-11ef-ae06-aee3018ac00c --receiver_ports=5100  128.135.164.119:5100  &
@@ -264,12 +266,11 @@ def conout(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
 
         try:
             result = future.result(timeout=60)
-            print(f"Stdout: \n{result.stdout}")
-            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            if cln_stderr.strip():
-                print(f"Stderr: {cln_stderr}", flush=True)
+            #print(f"Stdout: \n{result.stdout}")
+            #cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+            #if cln_stderr.strip():
+            #    print(f"Stderr: {cln_stderr}", flush=True)
 
-            
         except Exception as e:
             print(f"CON OUT:      Task failed on conout and I don't know why!!!: {e}")
 """        finally:

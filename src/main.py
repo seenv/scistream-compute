@@ -54,10 +54,7 @@ def get_uuid(client, name):
 
 
 
-def wrapper(func, args, uuid, results_queue, sci_ep):
-    """ Wrapper function to capture function output inside a thread """
-    key = func(args, uuid) 
-    results_queue.put((sci_ep, key))
+
 
 
 
@@ -66,12 +63,10 @@ if __name__ == "__main__":
     gcc = Client()
     args = get_args()
 
-    mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt}
-    #sci_funcs = {"that": p2cs, "neat": c2cs, "this": pub, "swell": con}
-    #sci_funcs = {"that": p2cs, "neat": c2cs, "swell": con}
-    
-    inbound_sync = {"that": p2cs, "swell": conin}
-    outbound_sync = {"neat": c2cs, "swell": conout}
+    inbounds = {"that": p2cs, "swell": conin}
+    outbounds = {"neat": c2cs, "swell": conout}
+    mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt}    
+
 
     #scistream
     inbound, outbound = {}, {}
@@ -79,54 +74,52 @@ if __name__ == "__main__":
     stream_uid, p2cs_sync, outbound_ports = None, None, None
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
-    for sci_ep, func in inbound_sync.items():
+    for sci_ep, func in inbounds.items():
         uuid = get_uuid(gcc, sci_ep)
         thread = threading.Thread(target=func,  args=(args, sci_ep, uuid, results_queue), daemon=True)
         inbound[thread] = sci_ep
         #threads.append(thread)
         thread.start()
-    
-    """while any(t.is_alive() for t in inbound):
-        while not results_queue.empty():
-            key, value = results_queue.get()
-            if key =="uuid":
-                stream_uid = value
-            #elif key == "sync":
-            #    p2cs_sync = value
-            elif key == "ports":
-                outbound_ports = value"""
 
-    # Ensure all necessary values are set before proceeding
     print("\nMAIN:     Waiting for the scistream uid and outbound ports to be received")
+    # make sure it gets the uuid and por brfore starting the outbound
     while any(t.is_alive() for t in inbound):
-        while not results_queue.empty():
-            key, value = results_queue.get()
-            if key =="uuid":
-                stream_uid = value
-            #elif key == "sync":
-            #    p2cs_sync = value
-            elif key == "ports":
-                outbound_ports = value
-    
-    print(f"\nMAIN:     Will start the outbound process with {stream_uid} and {outbound_ports}")
+        try:
+            while stream_uid is None or outbound_ports is None:
+                key, value = results_queue.get()
+                if key =="uuid":
+                    stream_uid = value
+                    print(f"got the uid in the main: {stream_uid}")
+                #elif key == "sync":
+                #    p2cs_sync = value
+                elif key == "ports":
+                    outbound_ports = value
+                    print(f"got the ports  in the main: {outbound_ports}")
+        except queue.Empty:
+            pass
+        time.sleep(1)
 
-    # check if all endpoints are finished
+    # check all ibound endpoints are finished
     for thread, sci_ep in inbound.items():
         thread.join()
-        print(f"MAIN:     Task Execution on Endpoint '{sci_ep}' has Finished") 
+        print(f"MAIN:     Task Execution on Endpoint '{sci_ep}' has Finished")
+
+    print(f"\nMAIN:     Will start the outbound process with {stream_uid} and {outbound_ports}")
 
     if stream_uid is None or outbound_ports is None:
         print(f"MAIN:     Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
         exit(1)
+    else:
+        print(f"MAIN:     Sending the values to conout: {stream_uid} and {outbound_ports}")
 
     # Start Outbound Threads
-    for sci_ep, func in outbound_sync.items():
+    for sci_ep, func in outbounds.items():
         uuid = get_uuid(gcc, sci_ep)
         thread = threading.Thread(target=func, args=(args, sci_ep, uuid, stream_uid, outbound_ports, results_queue), daemon=True)
         outbound[thread] = sci_ep
         thread.start()
 
-    # Ensure all outbound tasks are finished
+    # check all outbound endpoints are finished
     for thread, sci_ep in outbound.items():
         thread.join()
         print(f"MAIN:     Task Execution on Endpoint '{sci_ep}' has Finished")
@@ -136,8 +129,11 @@ if __name__ == "__main__":
 
 
 
+
+
+
     """# iterate over sci_funcs (keys = endpoint names, values = functions)
-    for sci_ep, func in outbound_sync.items():
+    for sci_ep, func in outbound.items():
         uuid = get_uuid(gcc, sci_ep)
         thread = threading.Thread(
             target=func, 
