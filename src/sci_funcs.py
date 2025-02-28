@@ -16,7 +16,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
     
 
     command =   f"""
-                timeout 60 bash -c '
+                timeout 59 bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
                     CONFIG_PATH="$HAPROXY_CONFIG_PATH" && mkdir -p "$CONFIG_PATH"
                 else 
@@ -25,7 +25,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
                 if [[ -s "$CONFIG_PATH/resource.map" ]]; then
                     rm -f "$CONFIG_PATH/resource.map"
                 fi
-                stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener_ip={args.p2cs_listener} --type={args.type} > $CONFIG_PATH/p2cs.log  &
+                stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener_ip={args.p2cs_listener} --type={args.type}  > "$CONFIG_PATH/p2cs.log"  &
                 while [[ ! -f "$CONFIG_PATH/resource.map" ]] || ! grep -q "Prod Listeners:" "$CONFIG_PATH/resource.map"; do
                     sleep 1
                 done
@@ -120,6 +120,9 @@ def p2cs(args, endpoint_name, uuid, result_q):
             print(f"P2CS:      Task failed on p2cs and I don't know why!!!: {e}")
             #return None  #None if no key is found
 
+        #finally:
+        #    print("Cleaning up Executor resources.")
+
 
 
 
@@ -135,20 +138,16 @@ def c2cs(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
     import sys, socket, time, os
 
     command =   f"""
-                timeout 60 bash -c '
+                bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
                     CONFIG_PATH="$HAPROXY_CONFIG_PATH"
                 else 
                     CONFIG_PATH="/tmp/.scistream"
                 fi
                 mkdir -p "$CONFIG_PATH"
-                stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener_ip={args.c2cs_listener} --type={args.type}  > $CONFIG_PATH/c2cs.log &
-                echo "Waiting for stunnel to start on c2cs"
-                while ! pgrep -x "stunnel" > /dev/null ; do  
-                     sleep 1
-                done
-                echo "stunnel started in the c2cs with PID: $(pgrep -x stunnel)" '
-
+                stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose  --listener_ip={args.c2cs_listener} --type={args.type} > "$CONFIG_PATH/c2cs.log" &
+                echo "stunnel started in the c2cs with PID: $(pgrep -x stunnel)" 
+                '
                 """
                 #the correct command: s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip=128.135.24.120 --type="StunnelSubprocess"
 
@@ -161,14 +160,14 @@ def c2cs(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
 
         try:
             result = future.result()
-            #print(f"Stdout: \n{result.stdout}", flush=True)
-            #cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-            #if cln_stderr.strip():
-            #    print(f"Stderr: {cln_stderr}", flush=True)
+            print(f"Stdout: \n{result.stdout}", flush=True)
+            cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
+            if cln_stderr.strip():
+                print(f"Stderr: {cln_stderr}", flush=True)
         except Exception as e:
             print(f"C2CS:      Task failed on c2cs and I don't know why!!!: {e}")
-        """finally:
-            print("Cleaning up Executor resources.")"""
+        #finally:
+        #    print("Cleaning up Executor resources.")
 
 
 
@@ -183,7 +182,7 @@ def conin(args, endpoint_name, uuid, result_q):
     import sys, socket, queue
 
     command =   f"""
-                timeout 60 bash -c '
+                bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
                     CONFIG_PATH="$HAPROXY_CONFIG_PATH"
                 else 
@@ -191,7 +190,7 @@ def conin(args, endpoint_name, uuid, result_q):
                 fi
                 mkdir -p "$CONFIG_PATH"
                 sleep 5
-                s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000  > $CONFIG_PATH/conin.log &
+                s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.prod_ip} --s2cs {args.p2cs_ip}:5000  > "$CONFIG_PATH/conin.log" &
                 '
                 """
                 
@@ -240,7 +239,7 @@ def conout(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
     print(f"\nCON OUT:      The first port in the list is {first_port}")
 
     command =   f"""
-                timeout 60 bash -c '
+                bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
                     CONFIG_PATH="$HAPROXY_CONFIG_PATH"
                 else 
@@ -249,7 +248,7 @@ def conout(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
                 mkdir -p "$CONFIG_PATH"
                 echo "in bash of conout s2uc outbound will start with the uid {scistream_uuid} and on the port {first_port}"
                 sleep 5
-                s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:5000  --receiver_ports={first_port} {scistream_uuid} {args.p2cs_ip}:{first_port}  > $CONFIG_PATH/conout.log &
+                s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip {args.p2cs_ip} --s2cs {args.c2cs_listener}:5000  --receiver_ports={first_port} {scistream_uuid} {args.p2cs_ip}:{first_port}  > "$CONFIG_PATH/conout.log" &
                 '
                 """
                 #correct command: s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000  --receiver_ports=5100 0cddc36c-f3b5-11ef-9275-aee3018ac00c 128.135.164.119:5100
