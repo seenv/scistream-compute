@@ -16,7 +16,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
     
 
     command =   f"""
-                timeout 59 bash -c '
+                bash -c '
                 if [[ -n "$HAPROXY_CONFIG_PATH" ]]; then
                     CONFIG_PATH="$HAPROXY_CONFIG_PATH" && mkdir -p "$CONFIG_PATH"
                 else 
@@ -117,7 +117,7 @@ def p2cs(args, endpoint_name, uuid, result_q):
             #print(result.stdout, flush=True)
 
         except Exception as e:
-            print(f"P2CS:      Task failed on p2cs and I don't know why!!!: {e}")
+            print(f"P2CS:      Task failed: {e}")
             #return None  #None if no key is found
 
         #finally:
@@ -165,7 +165,7 @@ def c2cs(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
             if cln_stderr.strip():
                 print(f"Stderr: {cln_stderr}", flush=True)
         except Exception as e:
-            print(f"C2CS:      Task failed on c2cs and I don't know why!!!: {e}")
+            print(f"C2CS:      Task failed on: {e}")
         #finally:
         #    print("Cleaning up Executor resources.")
 
@@ -213,7 +213,7 @@ def conin(args, endpoint_name, uuid, result_q):
             #    print(f"Stderr: {cln_stderr}", flush=True)
 
         except Exception as e:
-            print(f"CON IN:      Task failed on conin and I don't know why!!!: {e}")
+            print(f"CON IN:      Task failed: {e}")
         """finally:
             print("CON IN:      Cleaning up Executor resources.")"""
 
@@ -227,16 +227,12 @@ def conout(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
     from datetime import datetime
     import sys, socket, queue
 
-    while not port_list or not scistream_uuid:
-        print(f"\nCON OUT:      Haven't received the port_list and scistream_uuid in conout yet!")
-        time.sleep(1)
     if scistream_uuid is None or port_list is None:
         print(f"CON OUT:     Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
         exit(1)
 
     print(f"\nCON OUT:      Received port_list {port_list} and scistream_uuid {scistream_uuid} in conout!")
     first_port = port_list[0]
-    print(f"\nCON OUT:      The first port in the list is {first_port}")
 
     command =   f"""
                 bash -c '
@@ -271,7 +267,7 @@ def conout(args, endpoint_name, uuid, scistream_uuid, port_list, results_queue):
             #    print(f"Stderr: {cln_stderr}", flush=True)
 
         except Exception as e:
-            print(f"CON OUT:      Task failed on conout and I don't know why!!!: {e}")
+            print(f"CON OUT:      Task failed: {e}")
 """        finally:
             print("Cleaning up Executor resources.")"""
 
