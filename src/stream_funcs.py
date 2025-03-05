@@ -12,7 +12,7 @@ def p2cs(args, endpoint_name, uuid):
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
-            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
+            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --num_conn "{args.num_conn}" --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
             sleep 5 && cat "$HAPROXY_CONFIG_PATH/p2cs.log"
             '
             """            
@@ -44,7 +44,7 @@ def c2cs(args, endpoint_name, uuid):
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
-            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
+            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --num_conn "{args.num_conn}" --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
             sleep 5 && cat "$HAPROXY_CONFIG_PATH/c2cs.log"
             '
             """
@@ -79,7 +79,7 @@ def inbound(args, endpoint_name,uuid, max_retries=3, delay=2):
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
             sleep 1
-            s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.prod_ip}" --s2cs "{args.p2cs_ip}:5000"  > "$HAPROXY_CONFIG_PATH/conin.log" 2>&1 &
+            s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.prod_ip}" --num_conn "{args.num_conn}" --receiver_ports "{args.receiver_ports}" --s2cs "{args.p2cs_ip}:5000"  > "$HAPROXY_CONFIG_PATH/conin.log" 2>&1 &
             while ! grep -q "prod_listeners:" "$HAPROXY_CONFIG_PATH/conin.log"; do sleep 1; done
             sleep 5
             cat "$HAPROXY_CONFIG_PATH/conin.log"
@@ -98,24 +98,26 @@ def inbound(args, endpoint_name,uuid, max_retries=3, delay=2):
             logging.debug(f"INBOUND Output: {result.stdout}")
             #logging.debug(f"INBOUND Errors: {result.stderr}")
 
-            for retry in range(max_retries):
-                stream_uid, port = None, None
+            stream_uid, listen_ports = None, []
+            for retry in range(max_retries + int(args.num_conn)):
                 
                 for line in result.stdout.splitlines():
                     if "INVALID_TOKEN PROD" in line and stream_uid is None:
                         stream_uid = line.split(" ")[0]
-                        logging.debug(f"the stream uid is: {stream_uid}")
-                    if "listener" in line and port is None:
+                        logging.debug(f"Extracted Stream UID: {stream_uid}")
+                    if line.strip().startswith("listeners:"):
                         parts = line.split(":")
-                        if len(parts) > 1:
-                            port = parts[-1].strip('"')
-                            logging.debug(f"The producer's listening port is: {port}")
+                        if len(parts) > 1 and len(listen_ports) < int(args.num_conn):
+                            listen_ports.append(parts[-1].strip('"'))
+                            logging.debug(f"Extracted Listener Port: {listen_ports[-1]}")
+                            print (f"The producer's listening port is: {listen_ports} \n")
 
-                if stream_uid and port:
-                    logging.debug(f"INBOUND: The S2CS initiated the Stream Inbound Connection with Stream UID : {stream_uid} and port is: {port}")
-                    print(f"The S2CS initiated the Stream Inbound Connection with Stream UID : {stream_uid} and port is: {port} \n")
+
+                if stream_uid and len(listen_ports) == int(args.num_conn):
+                    logging.debug(f"INBOUND: The S2CS initiated the Stream Inbound Connection with Stream UID : {stream_uid} and port is: {listen_ports}")
+                    print(f"The S2CS initiated the Stream Inbound Connection with Stream UID : {stream_uid} and port is: {listen_ports} \n")
                     #gce.shutdown(wait=False, cancel_futures=False)
-                    return stream_uid, port
+                    return stream_uid, listen_ports
 
                 logging.warning(f"retrying extraction... attempt {retry+1}/{max_retries}")
                 time.sleep(delay)
@@ -131,30 +133,33 @@ def inbound(args, endpoint_name,uuid, max_retries=3, delay=2):
 
 
 
-def outbound(args, endpoint_name, uuid, stream_uid, port):
+def outbound(args, endpoint_name, uuid, stream_uid, ports):
     """Start the outbound connection using the extracted Stream UID and Port."""
 
-    if not stream_uid or not port:
-        print(f"The Outbound Connection failed due to missing Stream UID or Port on the endpoint {endpoint_name.capitalize()} \n")
-        logging.error(f"OUTBOUND: The Outbound Connection failed due to missing Stream UID or Port on the endpoint {endpoint_name.capitalize()}")
+    if not stream_uid or len(ports) < int(args.num_conn):
+        print(f"The Outbound Connection failed due to missing Stream UID or Port on the endpoint {endpoint_name.capitalize()} {stream_uid, ports} \n")
+        logging.error(f"OUTBOUND: The Outbound Connection failed due to missing Stream UID or Port on the endpoint {endpoint_name.capitalize()} {stream_uid, ports}")
         return
+
+    #listen_ports = ",".join(ports)
+    listen_ports = ports[0]
 
     cmd =   f"""
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
-            setsid stdbuf -oL -eL s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":5000  --receiver_ports="{port}" "{stream_uid}" "{args.p2cs_ip}":"{port}"  > "$HAPROXY_CONFIG_PATH/conout.log" &
+            setsid stdbuf -oL -eL s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":5000  --num_conn "{args.num_conn}" --receiver_ports="{listen_ports}" "{stream_uid}" "{args.p2cs_ip}":"{listen_ports}",  > "$HAPROXY_CONFIG_PATH/conout.log" &
             while ! grep -q "Hello message sent successfully" "$HAPROXY_CONFIG_PATH/conout.log"; do sleep 1 ; done
             sleep 1
             cat "$HAPROXY_CONFIG_PATH/conout.log"
             '
             """
-            # s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000  --receiver_ports=5100 0cddc36c-f3b5-11ef-9275-aee3018ac00c 128.135.164.119:5100
+            # s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000  --receiver_ports=5100 0cddc36c-f3b5-11ef-9275-aee3018ac00c 128.135.164.119:5100,128.135.164.119:5101,128.135.164.119:5102,128.135.164.119:5103          "{args.p2cs_ip}":"{listen_ports}"   
 
     with Executor(endpoint_id=uuid) as gce:
 
-        print(f"Starting the the Outbound Connection on the endpoint {endpoint_name.capitalize()} with args: \n{args} \n")
-        logging.debug(f"OUTBOUND: Starting Outbound connection on endpoint ({endpoint_name.capitalize()}) with args: \n{args}")
+        print(f"Starting the the Outbound Connection on the endpoint {endpoint_name.capitalize()} with args: \n{args} \nand stream UID and Listening Ports: {stream_uid, listen_ports} \n")
+        logging.debug(f"OUTBOUND: Starting Outbound connection on endpoint ({endpoint_name.capitalize()}) with args: \n{args} \nand stream UID and Listening Ports: {stream_uid, listen_ports} ")
         future = gce.submit(ShellFunction(cmd))
 
         try:

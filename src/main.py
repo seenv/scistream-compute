@@ -22,7 +22,6 @@ def get_args():
     argparser.add_argument('--sync-port', help="syncronization port",default="5000")
     argparser.add_argument('--p2cs-listener', help="listerner's IP of p2cs", default="128.135.24.119")
     argparser.add_argument('--p2cs-ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
-    argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess", default="StunnelSubprocess")
     argparser.add_argument('--c2cs-listener', help="listerner's IP of c2cs", default="128.135.24.120")
     argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
     argparser.add_argument('--prod-ip', help="producer's IP address", default='128.135.24.117')
@@ -30,6 +29,13 @@ def get_args():
     argparser.add_argument('--inbound_starter', help="initiate the inbound stream connection", default="swell")             # the server certification should be specified
     argparser.add_argument('--outbound_starter', help="initiate the outbound stream connection", default="swell")           # the server certification should be specified
     #argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
+
+    argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess", default="StunnelSubprocess")
+    argparser.add_argument('--num_conn', type=int, help="THe number of specified ports", default=5)
+    argparser.add_argument('--rate"', type=int, help="transfer rate",default=10000)         #TODO: Add it to the command lines
+    argparser.add_argument('--receiver_ports', type=str, help="Comma-separated list of receiver ports", default="5074,5075,5076,37000,47000")
+
+
     return argparser.parse_args()
 
 
@@ -83,11 +89,10 @@ def start_connection(args, gcc, connections):
     """Manage the full connection process, optionally running inbound and outbound in parallel."""
 
     connections = {args.inbound_starter: inbound, args.outbound_starter: outbound}
-    #stream_uid, port = None, None
 
-    stream_uid, port = inbound(args, args.inbound_starter,  get_uuid(gcc, args.inbound_starter))
-    if stream_uid and port:
-        outbound(args, args.inbound_starter, get_uuid(gcc, args.outbound_starter), stream_uid, port) 
+    stream_uid, ports = inbound(args, args.inbound_starter,  get_uuid(gcc, args.inbound_starter))
+    if stream_uid and len(ports) == int(args.num_conn):
+        outbound(args, args.inbound_starter, get_uuid(gcc, args.outbound_starter), stream_uid, ports) 
     else:
         logging.error("Failed to retrieve Stream UID and Port. Outbound will not start.")
         #exit(1)
