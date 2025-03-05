@@ -1,9 +1,20 @@
 import argparse
-import threading, queue, time
+import threading, queue, time, logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
-from sci_funcs import p2cs, c2cs, conin, conout
+from stream_funcs import p2cs, c2cs, inbound, outbound, kill_orphans
 from mini_funcs import daq, dist, sirt
+
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"), 
+        #logging.StreamHandler()
+    ]
+)
+
 
 
 def get_args():
@@ -11,145 +22,109 @@ def get_args():
     argparser.add_argument('--sync-port', help="syncronization port",default="5000")
     argparser.add_argument('--p2cs-listener', help="listerner's IP of p2cs", default="128.135.24.119")
     argparser.add_argument('--p2cs-ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
-    argparser.add_argument('--type', help= "proxy type", default="StunnelSubprocess")
+    argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess", default="StunnelSubprocess")
     argparser.add_argument('--c2cs-listener', help="listerner's IP of c2cs", default="128.135.24.120")
     argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
     argparser.add_argument('--prod-ip', help="producer's IP address", default='128.135.24.117')
-    #argparser.add_argument('--cons-ip', help="consumer's IP address", default="128.135.24.118")
-    argparser.add_argument('--version', help="scistream version", default="1.2")
-
+    argparser.add_argument('--cons-ip', help="consumer's IP address", default="128.135.24.118")
+    argparser.add_argument('--inbound_starter', help="initiate the inbound stream connection", default="swell")             # the server certification should be specified
+    argparser.add_argument('--outbound_starter', help="initiate the outbound stream connection", default="swell")           # the server certification should be specified
+    #argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
     return argparser.parse_args()
 
 
-def get_ep_stat(gcc, uuid, name):
-    from globus_compute_sdk import Executor, ShellFunction, Client
 
-    command = "globus-compute-endpoint list "
-    shell_function = ShellFunction(command, walltime=30)
-    with Executor(endpoint_id=uuid)as gce:
-        future = gce.submit(shell_function)
-    try:
-        result = future.result(timeout=10)
-        print(f"Endpoint {name.capitalize()} Status: \n{result.stdout}", flush=True)
-        cln_stderr = "\n".join(line for line in result.stderr.split("\n") if "WARNING" not in line)
-        if cln_stderr.strip():
-            print(f"Stderr: {cln_stderr}", flush=True)
-    except Exception as e:
-        print(f"Getting EP Status failed: {e}")
+def get_status(gcc, uuid, name):
+    """Get the status of the endpoint with the given endpoint UUID."""
+
+    status = get_endpoint_status(uuid)
+    metadata = gcc.get_endpoint_metadata(uuid)
+    stop_response = gcc.stop_endpoint(uuid)            #Return type: json
+    task_id = gcc.get_worker_hardware_details(uuid)
+    result_status = gcc.get_result(task_id)
 
 
 
 def get_uuid(client, name):
+    """Get the UUID of the endpoint with the given endpoint."""
+
     try:
         endpoints = client.get_endpoints()
         for ep in endpoints:
             endpoint_name = ep.get('name', '').strip()
             if endpoint_name == name.strip().lower():
-                #print(f"DEBUG:EndPoint: {name} with UUID: {ep.get('uuid')}")
-                #get_ep_stat(client, ep.get('uuid'), str(name))
+                #get_status(client, ep.get('uuid'), str(name))
                 return ep.get('uuid')
     except Exception as e:
-        print(f"error fetching {name}: {str(e)}")
+        logging.debug(f"error fetching {name}: {str(e)}")
     return None
 
 
 
+def start_s2cs(args, gcc, s2cs):
+    """Start the S2CS functions "p2cs" and "c2cs" on the producer and consumer endpoints."""
 
-
-
-
-if __name__ == "__main__":
-
-    gcc = Client()
-    args = get_args()
-
-    inbounds = {"that": p2cs, "swell": conin}
-    outbounds = {"neat": c2cs, "swell": conout}
-    mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt}    
-
-
-    #scistream
-    inbound, outbound = {}, {}
-    results_queue = queue.Queue()   # queue to store results
-    stream_uid, p2cs_sync, outbound_ports = None, None, None
+    s2cs_threads = {}
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
-    for sci_ep, func in inbounds.items():
-        uuid = get_uuid(gcc, sci_ep)
-        thread = threading.Thread(target=func,  args=(args, sci_ep, uuid, results_queue), daemon=True)
-        inbound[thread] = sci_ep
-        #threads.append(thread)
+    for s2cs_endpoint, func in s2cs.items():
+        thread = threading.Thread(target=func,  args=(args, s2cs_endpoint, get_uuid(gcc, s2cs_endpoint)), daemon=True)
+        s2cs_threads[thread] = s2cs_endpoint
         thread.start()
+        logging.debug(f"MAIN: The S2CS '{s2cs_endpoint}' has started")
 
-    print("\nMAIN:     Waiting for the scistream uid and outbound ports to be received")
-    # make sure it gets the uuid and por brfore starting the outbound
-    while any(t.is_alive() for t in inbound):
-        try:
-            while stream_uid is None or outbound_ports is None:
-                key, value = results_queue.get()
-                if key =="uuid":
-                    stream_uid = value
-                    print(f"got the uid in the main: {stream_uid}")
-                #elif key == "sync":
-                #    p2cs_sync = value
-                elif key == "ports":
-                    outbound_ports = value
-                    print(f"got the ports  in the main: {outbound_ports}")
-        except queue.Empty:
-            pass
-        time.sleep(1)
-
-    # check all ibound endpoints are finished
-    for thread, sci_ep in inbound.items():
+    for thread, s2cs_endpoint in s2cs_threads.items():
         thread.join()
-        print(f"MAIN:     Task Execution on Endpoint '{sci_ep}' has Finished")
+        logging.debug(f"MAIN: The S2CS '{s2cs_endpoint}' has finished")
 
-    print(f"\nMAIN:     Will start the outbound process with {stream_uid} and {outbound_ports}")
 
-    if stream_uid is None or outbound_ports is None:
-        print(f"MAIN:     Error: Required values missing. Exiting: {stream_uid} and {outbound_ports}")
-        exit(1)
+
+def start_connection(args, gcc, connections):
+    """Manage the full connection process, optionally running inbound and outbound in parallel."""
+
+    connections = {args.inbound_starter: inbound, args.outbound_starter: outbound}
+    #stream_uid, port = None, None
+
+    stream_uid, port = inbound(args, args.inbound_starter,  get_uuid(gcc, args.inbound_starter))
+    if stream_uid and port:
+        outbound(args, args.inbound_starter, get_uuid(gcc, args.outbound_starter), stream_uid, port) 
     else:
-        print(f"MAIN:     Sending the values to conout: {stream_uid} and {outbound_ports}")
+        logging.error("Failed to retrieve Stream UID and Port. Outbound will not start.")
+        #exit(1)
+    
 
-    # Start Outbound Threads
-    for sci_ep, func in outbounds.items():
-        uuid = get_uuid(gcc, sci_ep)
-        thread = threading.Thread(target=func, args=(args, sci_ep, uuid, stream_uid, outbound_ports, results_queue), daemon=True)
-        outbound[thread] = sci_ep
+
+def cleaning_s2cs():
+    """
+    Kill the orphan processes of the S2CS on the producer and consumer endpoints.
+    Since the processes are disowned using the 'setsid', they need to be killed
+    no matter the connection status. (it won't affect the status)
+    """
+
+    s2cs_threads = {}
+
+    # iterate over sci_funcs (keys = endpoint names, values = functions)
+    for s2cs_endpoint, _ in s2cs.items():
+        thread = threading.Thread(target=kill_orphans,  args=(args, s2cs_endpoint, get_uuid(gcc, s2cs_endpoint)), daemon=True)
+        s2cs_threads[thread] = s2cs_endpoint
         thread.start()
+        logging.debug(f"MAIN: Starting killing Orphan processes on '{s2cs_endpoint}' ")
 
-    # check all outbound endpoints are finished
-    for thread, sci_ep in outbound.items():
+    for thread, s2cs_endpoint in s2cs_threads.items():
         thread.join()
-        print(f"MAIN:     Task Execution on Endpoint '{sci_ep}' has Finished")
+        logging.debug(f"MAIN: Finished killing Orphan processes on '{s2cs_endpoint}' ")
 
 
 
+def start_mini():
+    """Starts the mini functions "daq", "dist" on the producer and "sirt" consumer endpoints."""
 
-
-
-
-
-
-    """# iterate over sci_funcs (keys = endpoint names, values = functions)
-    for sci_ep, func in outbound.items():
-        uuid = get_uuid(gcc, sci_ep)
-        thread = threading.Thread(
-            target=func, 
-            args=(args, uuid, stream_uid, outbound_ports, results_queue), 
-            daemon=True
-        )
-        outbound[thread] = sci_ep
-        threads2.append(thread)"""
-
-
-    """# mini-aps
     mini = {}
-    for mini_ep, func in mini_funcs.items():
-        uuids = get_uuid(gcc, mini_ep)
+
+    for mini_endpoint, func in mini_funcs.items():
+        uuids = get_uuid(gcc, mini_endpoint)
         thread = threading.Thread(target=func, args= (args, uuids), daemon=True)
-        mini[thread] = mini_ep
+        mini[thread] = mini_endpoint
     
     for thread in mini:
         thread.start()
@@ -158,4 +133,17 @@ if __name__ == "__main__":
         thread.join()
         print(f"Task Execution on Endpoint '{mini[thread]}' has Finished")
 
-"""
+
+
+gcc = Client()
+args = get_args()
+s2cs = {"that": p2cs, "neat": c2cs}
+connections = {args.inbound_starter: inbound, args.outbound_starter: outbound}
+mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt} 
+
+if __name__ == "__main__":
+        
+    start_s2cs(args, gcc, s2cs)
+    start_connection(args, gcc, connections)
+    #cleaning_s2cs()
+    #start_mini()
