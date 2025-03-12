@@ -31,11 +31,13 @@ def get_args():
     #argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
 
     argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess", default="StunnelSubprocess")
+    argparser.add_argument('--rate', type=int, help="transfer rate",default=10000)         #TODO: Add it to the command lines
     argparser.add_argument('--num_conn', type=int, help="THe number of specified ports", default=5)
-    argparser.add_argument('--rate"', type=int, help="transfer rate",default=10000)         #TODO: Add it to the command lines
-    argparser.add_argument('--receiver_ports', type=str, help="Comma-separated list of receiver ports", default="5074,5075,5076,37000,47000")
+    argparser.add_argument('--inbound_src_ports', type=str, help="Comma-separated list of inbound receiver ports", default="5074,5075,5076,5077,5078")
+    argparser.add_argument('--outbound_dst_ports', type=str, help="Comma-separated list of outbound receiver ports", default="5100,5101,5102,5103,5104")    #dynamically is increased by the s2uc and then is read from the log file
 
-
+    argparser.add_argument('--num_mini', type=int, help="The number of aps-mini-app transaction", default=5)
+    
     return argparser.parse_args()
 
 
