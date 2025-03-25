@@ -138,10 +138,10 @@ print(f"Total size of packets: {total_size} Bytes ~ {(total_size / (1024 * 1024)
 
 
 
-df.plot(x="Timestamp", y="Packet_Size", title="Packet Size", kind="line")
-#df.set_index("Timestamp").resample("1s")['Packet_Size'].plot(title="Packets per second", kind="line")
-df.set_index("Timestamp").resample("1s")["Packet_Size"].count().plot(title="packet cnt per sec")    # packet count over time or activity level
-df.set_index("Timestamp").resample("1s")["Packet_Size"].sum().plot(title="bytes per sec")        # throughput approximation
+#df.plot(x="Timestamp", y="Packet_Size", title="Packet Size", kind="line")
+df.set_index("Timestamp").resample("5s")['Packet_Size'].plot(title="Packets per second", kind="line")
+df.set_index("Timestamp").resample("5s")["Packet_Size"].count().plot(title="packet cnt per sec")            # packet count over time or activity level
+df.set_index("Timestamp").resample("5s")["Packet_Size"].sum().plot(title="bytes per sec")                   # throughput approximation
 
 
 #df.to_csv("stream_packets.csv", index=False)
