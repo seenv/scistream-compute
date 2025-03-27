@@ -1,42 +1,54 @@
 import argparse
-import threading, queue, time, logging
+import logging
+import threading, queue, time, sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
-from stream_funcs import p2cs, c2cs, inbound, outbound, kill_orphans
+from stream_funcs import p2cs, c2cs, inbound, outbound, stop_s2cs
 from mini_funcs import daq, dist, sirt
 
 
+"""# Reset all logging handlers
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)"""
+
+"""# Optionally, clear the logging configuration
+logging.shutdown()"""
+
+# Now reconfigure
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("app.log"), 
-        #logging.StreamHandler()
+        logging.FileHandler("app.log"),
+        # logging.StreamHandler()  # Uncomment for console output
     ]
+    #force=True
 )
 
 
 
 def get_args():
     argparser = argparse.ArgumentParser(description="arguments")
-    argparser.add_argument('--sync-port', help="syncronization port",default="5000")
-    argparser.add_argument('--p2cs-listener', help="listerner's IP of p2cs", default="128.135.24.119")
-    argparser.add_argument('--p2cs-ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
-    argparser.add_argument('--c2cs-listener', help="listerner's IP of c2cs", default="128.135.24.120")
+    argparser.add_argument('--sync_port', help="syncronization port",default="5000")
+    argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="128.135.24.119")
+    argparser.add_argument('--p2cs_ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
+    argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="128.135.24.120")
     argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
-    argparser.add_argument('--prod-ip', help="producer's IP address", default='128.135.24.117')
-    argparser.add_argument('--cons-ip', help="consumer's IP address", default="128.135.24.118")
+    argparser.add_argument('--prod_ip', help="producer's IP address", default='128.135.24.117')
+    argparser.add_argument('--cons_ip', help="consumer's IP address", default="128.135.24.118")
     argparser.add_argument('--inbound_starter', help="initiate the inbound stream connection", default="swell")             # the server certification should be specified
     argparser.add_argument('--outbound_starter', help="initiate the outbound stream connection", default="swell")           # the server certification should be specified
-    #argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
+    argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=False)
+    argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
 
-    argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess", default="StunnelSubprocess")
+    argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess, Haproxy", default="StunnelSubprocess")
     argparser.add_argument('--rate', type=int, help="transfer rate",default=10000)         #TODO: Add it to the command lines
     argparser.add_argument('--num_conn', type=int, help="THe number of specified ports", default=5)
     argparser.add_argument('--inbound_src_ports', type=str, help="Comma-separated list of inbound receiver ports", default="5074,5075,5076,5077,5078")
     argparser.add_argument('--outbound_dst_ports', type=str, help="Comma-separated list of outbound receiver ports", default="5100,5101,5102,5103,5104")    #dynamically is increased by the s2uc and then is read from the log file
 
-    argparser.add_argument('--num_mini', type=int, help="The number of aps-mini-app transaction", default=5)
+    argparser.add_argument('--num_mini', type=int, help="The number of concurrent aps-mini-app transaction run", default=5)
+
     
     return argparser.parse_args()
 
@@ -61,7 +73,6 @@ def get_uuid(client, name):
         for ep in endpoints:
             endpoint_name = ep.get('name', '').strip()
             if endpoint_name == name.strip().lower():
-                #get_status(client, ep.get('uuid'), str(name))
                 return ep.get('uuid')
     except Exception as e:
         logging.debug(f"error fetching {name}: {str(e)}")
@@ -69,6 +80,28 @@ def get_uuid(client, name):
 
 
 
+def stop_service(args, gcc, clean):
+    """
+    Kill the orphan processes of the S2CS on the producer and consumer endpoints.
+    Since the processes are disowned using the 'setsid', they need to be killed
+    no matter the connection status. (it won't affect the status)
+    """
+
+    kill_threads = {}
+
+    # iterate over sci_funcs (keys = endpoint names, values = functions)
+    for clean_s2cs_endpoint, _ in clean.items():
+        thread = threading.Thread(target=stop_s2cs,  args=(args, clean_s2cs_endpoint, get_uuid(gcc, clean_s2cs_endpoint)), daemon=True)
+        kill_threads[thread] = clean_s2cs_endpoint
+        thread.start()
+        logging.debug(f"MAIN: Starting killing Orphan processes on '{clean_s2cs_endpoint}' ")
+
+    for thread, clean_s2cs_endpoint in kill_threads.items():
+        thread.join()
+        logging.debug(f"MAIN: Finished killing Orphan processes on '{clean_s2cs_endpoint}' ")
+        
+        
+        
 def start_s2cs(args, gcc, s2cs):
     """Start the S2CS functions "p2cs" and "c2cs" on the producer and consumer endpoints."""
 
@@ -77,6 +110,7 @@ def start_s2cs(args, gcc, s2cs):
     # iterate over sci_funcs (keys = endpoint names, values = functions)
     for s2cs_endpoint, func in s2cs.items():
         thread = threading.Thread(target=func,  args=(args, s2cs_endpoint, get_uuid(gcc, s2cs_endpoint)), daemon=True)
+        
         s2cs_threads[thread] = s2cs_endpoint
         thread.start()
         logging.debug(f"MAIN: The S2CS '{s2cs_endpoint}' has started")
@@ -98,28 +132,6 @@ def start_connection(args, gcc, connections):
     else:
         logging.error("Failed to retrieve Stream UID and Port. Outbound will not start.")
         #exit(1)
-    
-
-
-def cleaning_s2cs():
-    """
-    Kill the orphan processes of the S2CS on the producer and consumer endpoints.
-    Since the processes are disowned using the 'setsid', they need to be killed
-    no matter the connection status. (it won't affect the status)
-    """
-
-    s2cs_threads = {}
-
-    # iterate over sci_funcs (keys = endpoint names, values = functions)
-    for s2cs_endpoint, _ in s2cs.items():
-        thread = threading.Thread(target=kill_orphans,  args=(args, s2cs_endpoint, get_uuid(gcc, s2cs_endpoint)), daemon=True)
-        s2cs_threads[thread] = s2cs_endpoint
-        thread.start()
-        logging.debug(f"MAIN: Starting killing Orphan processes on '{s2cs_endpoint}' ")
-
-    for thread, s2cs_endpoint in s2cs_threads.items():
-        thread.join()
-        logging.debug(f"MAIN: Finished killing Orphan processes on '{s2cs_endpoint}' ")
 
 
 
@@ -145,12 +157,17 @@ def start_mini():
 gcc = Client()
 args = get_args()
 s2cs = {"that": p2cs, "neat": c2cs}
+clean = {"that": stop_s2cs, "neat": stop_s2cs}
 connections = {args.inbound_starter: inbound, args.outbound_starter: outbound}
 mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt} 
 
+
 if __name__ == "__main__":
-        
+    
+    args.cleanup and stop_service(args, gcc, clean)
+    
     start_s2cs(args, gcc, s2cs)
     start_connection(args, gcc, connections)
-    #cleaning_s2cs()
+    
+    
     #start_mini()

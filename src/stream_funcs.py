@@ -21,7 +21,16 @@ def p2cs(args, endpoint_name, uuid):
 
     with Executor(endpoint_id=uuid) as gce:
 
-        print(f"Starting the Producer's S2CS on the endpoint {endpoint_name.capitalize()} with args: \n{args} \n")
+        print(f"Starting the Producer's S2CS: \n"
+              f"    endpoint: {endpoint_name.capitalize()} \n"
+              f"    endpoint uid: {uuid} \n"
+              f"    sync_port: {args.sync_port} \n"
+              f"    p2cs_listener: {args.p2cs_listener} \n"
+              f"    inbound_starter: {args.inbound_starter} \n"
+              f"    type: {args.type} \n"
+              f"    rate: {args.rate} \n"
+              f"    num_conn: {args.num_conn} \n"
+              f"\n")
         logging.debug(f"P2CS: Starting the Producer's S2CS on the endpoint ({endpoint_name.capitalize()}) with args: \n{args}")
         future = gce.submit(ShellFunction(cmd, walltime=10))
 
@@ -53,7 +62,16 @@ def c2cs(args, endpoint_name, uuid):
 
     with Executor(endpoint_id=uuid) as gce:
 
-        print(f"Starting the Consumer's S2CS on the endpoint {endpoint_name.capitalize()} with args: \n{args} \n")
+        print(f"Starting the Consumer's S2CS: \n"
+              f"    endpoint: {endpoint_name.capitalize()} \n"
+              f"    endpoint uid: {uuid} \n"
+              f"    sync_port: {args.sync_port} \n"
+              f"    c2cs_listener: {args.c2cs_listener} \n"
+              f"    outbound_starter: {args.outbound_starter} \n"
+              f"    type: {args.type} \n"
+              f"    rate: {args.rate} \n"
+              f"    num_conn: {args.num_conn} \n"
+              f"\n")
         logging.debug(f"C2CS: Starting the Consumer's S2CS on the endpoint {endpoint_name.capitalize()} with args: \n{args}")
         future = gce.submit(ShellFunction(cmd, walltime=10))
 
@@ -92,7 +110,14 @@ def inbound(args, endpoint_name,uuid, max_retries=3, delay=2):
 
     with Executor(endpoint_id=uuid) as gce:
 
-        print(f"Starting the the Inbound Connection on the endpoint {endpoint_name.capitalize()} with args: \n{args} \n")
+        print(f"Starting the Inbound Connection: \n"
+              f"    endpoint: {endpoint_name.capitalize()} \n"
+              f"    endpoint uid: {uuid} \n"
+              f"    sync_port: {args.sync_port} \n"
+              f"    p2cs_ip: {args.p2cs_ip} \n"
+              f"    prod_ip: {args.prod_ip} \n"
+              f"    inbound_src_ports: {args.inbound_src_ports} \n"
+              f"\n")
         logging.debug(f"INBOUND: Starting connection on endpoint ({endpoint_name.capitalize()}) with args: \n{args}")
         future = gce.submit(ShellFunction(cmd))
 
@@ -140,7 +165,7 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
     """Start the outbound connection using the extracted Stream UID and Port."""
 
     if not stream_uid or len(ports) < int(args.num_conn):
-        print(f"The Outbound Connection failed due to missing Stream UID or Port on the endpoint {endpoint_name.capitalize()} {stream_uid, ports} \n")
+        print(f"The Outbound Connection failed due to missing Stream UID or Port on the endpoint {endpoint_name.capitalize()} {stream_uid, ports}")
         logging.error(f"OUTBOUND: The Outbound Connection failed due to missing Stream UID or Port on the endpoint {endpoint_name.capitalize()} {stream_uid, ports}")
         return
 
@@ -151,7 +176,7 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
-            setsid stdbuf -oL -eL s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":5000  --num_conn "{args.num_conn}" --receiver_ports="{listen_ports}" "{stream_uid}" 128.135.164.119:5100,128.135.164.119:5101,128.135.164.119:5102,128.135.164.119:5103,128.135.164.119:5104,  > "$HAPROXY_CONFIG_PATH/conout.log" &
+            setsid stdbuf -oL -eL s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":5000  --num_conn "{args.num_conn}" --receiver_ports="{listen_ports}" "{stream_uid}" 128.135.164.119:5100,128.135.164.119:5101,128.135.164.119:5102,128.135.164.119:5103,128.135.164.119:5104  > "$HAPROXY_CONFIG_PATH/conout.log" &
             while ! grep -q "Hello message sent successfully" "$HAPROXY_CONFIG_PATH/conout.log"; do sleep 1 ; done
             sleep 1
             cat "$HAPROXY_CONFIG_PATH/conout.log"
@@ -162,7 +187,16 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
 
     with Executor(endpoint_id=uuid) as gce:
 
-        print(f"Starting the the Outbound Connection on the endpoint {endpoint_name.capitalize()} with args: \n{args} \n")
+        print(f"Starting the Outbound Connection: \n"
+              f"    endpoint: {endpoint_name.capitalize()} \n"
+              f"    endpoint uid: {uuid} \n"
+              f"    sync_port: {args.sync_port} \n"
+              f"    p2cs_listener: {args.p2cs_listener} \n"
+              f"    p2cs_ip: {args.p2cs_ip} \n"
+              f"    cons_ip: {args.cons_ip} \n"
+              f"    c2cs_listener: {args.c2cs_listener} \n"
+              f"    outbound_dst_ports: {args.outbound_dst_ports} \n"
+              f"\n")
         logging.debug(f"OUTBOUND: Starting Outbound connection on endpoint ({endpoint_name.capitalize()}) with args: \n{args} \n")
         future = gce.submit(ShellFunction(cmd))
 
@@ -181,29 +215,23 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
     
 
 
-def kill_orphans(args, endpoint_name , uuid):
+def stop_s2cs(args, endpoint_name , uuid):
     """Killing the orphaned processes initiated via globus worker"""
 
     cmd =   f"""
             bash -c '
-            sleep 10
-            pids=$(pgrep -f "s2cs")
-            if [[ -n "$pids" ]]; then
-                for pid in $pids; do
-                    kill -9 "$pid"
-                done
-                echo "Killed the orphan s2cs processes."
-            else
-                echo "No orphaned processes found."
-            fi
+            pgrep -x stunnel | while read -r pid; do ppid=$(ps -o ppid= -p "$pid" | tr -d " "); sudo kill -9 "$pid" "$ppid"; done >> /tmp/kill.log 2>&1
+            sleep 5 && echo "$(ps -ef | grep stunnel --color=auto )" >> /tmp/kill.log
             '
             """
     
     with Executor(endpoint_id=uuid) as gce:
         
-        print(f"Killing the orphaned processes on the endpoint {endpoint_name.capitalize()} with args: \n{args} \n")
+        print(f"Killing the orphaned processes: \n"
+              f"    endpoint: {endpoint_name.capitalize()} \n"
+              f"    Args: {args} \n")
         logging.debug(f"KILL_ORPHANS: Killing orphaned processes on endpoint ({endpoint_name.capitalize()}) with args: \n{args}")
-        future = gce.submit(ShellFunction(cmd, walltime=60))
+        future = gce.submit(ShellFunction(cmd))
 
         try:
             result = future.result()
@@ -217,3 +245,28 @@ def kill_orphans(args, endpoint_name , uuid):
         print(f"Killing the orphaned processes is completed on the endpoint {endpoint_name.capitalize()} \n")
         logging.debug(f"KILL_ORPHANS: Killing orphaned processes is completed on the endpoint {endpoint_name.capitalize()}")
         #gce.shutdown(wait=True, cancel_futures=False)
+        
+        
+        """            pids=$(pgrep -f "s2cs")
+            if [[ -n "$pids" ]]; then
+                for pid in $pids; do
+                    kill -9 "$pid"
+                done
+                echo "Killed the orphan s2cs processes."
+            else
+                echo "No orphaned processes found."
+            fi
+        
+        
+        STUPID=$(pgrep -f stunnel)
+            if [[ -n "$STUPID" ]]; then STUPPID=$(ps -o ppid= -p $(pgrep -f  stunnel) | tr -d ' '); sudo kill -9 $STUPID; sudo kill -9 $STUPPID; fi
+
+            SUB=$(pgrep -f StunnelSubprocess)
+            if [[ -n "$SUB" ]]; then; SUBPPID=$(ps -o ppid= -p $(pgrep -f  StunnelSubprocess) | tr -d ' '); sudo kill -9 $SUB; sudo kill -9 $SUBPPID; fi
+            
+            echo "$(ps -ef | grep python --color=auto )" && echo "$(ps -ef | grep Stunnel --color=auto )" && echo "$(ps -ef | grep stunnel --color=auto )
+            
+            
+                        pgrep -f stunnel | while read -r pid; do ppid=$(ps -o ppid= -p "$pid" | tr -d " "); sudo kill -9 "$pid" "$ppid"; done >> /tmp/kill.log 2>&1
+
+        """
