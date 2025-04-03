@@ -247,6 +247,12 @@ def stop_s2cs(args, endpoint_name , uuid):
         #gce.shutdown(wait=True, cancel_futures=False)
         
         
+        
+        
+        
+        
+        
+        
         """            pids=$(pgrep -f "s2cs")
             if [[ -n "$pids" ]]; then
                 for pid in $pids; do

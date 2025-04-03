@@ -84,7 +84,7 @@ def sirt(args, uuid):
         cmd.append(f"""
                     bash -c '
                     mkdir -p /tmp/mini-app/
-                    sleep 2 && setsid docker run \
+                    sleep 10 && setsid docker run \
                     --name sirt{i} \
                     --network host \
                     -v /tmp/mini-app:/output \
