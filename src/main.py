@@ -72,8 +72,45 @@ def get_status(gcc, uuid, name):
 #TODO: the Client system also needs an endpoint to creat the keys?!
 #TODO: change it so it first checks if all are available and then starts the functions
 #TODO: modify the code so that if in each func it found that the endpoint is offline, it kills all the previous threads
-#TODO: also seperate the get_uuid and get_status functions so we don't sys.exit before we kill all the previous threads
+#TODO: also seperate the get_uuid and get_status functions so we don't sys.exit before we kill all the previous threads (exit steps)
 #TODO: get the name of the endpoint from the command line and not hardcoded
+
+
+
+    """
+    server: (Self-Signed)
+    openssl req -x509 -nodes -days 365 \
+    -newkey rsa:2048 \
+    -keyout server.key -out server.crt \
+    -subj "/CN=172.17.0.2" \
+    -addext "subjectAltName=IP:172.17.0.2"
+    
+    or using Certificate Signing Request (CSR):
+    on the server
+    openssl req -new -newkey rsa:2048 -nodes \
+    -keyout server.key -out server.csr \
+    -subj "/CN=192.168.1.100" \
+    -addext "subjectAltName=IP:192.168.1.100"
+    
+        Samething as above:
+            openssl genrsa -out server.key 2048
+            openssl req -new -key server.key -out server.csr \
+            -subj "/CN=192.168.1.100" \
+            -addext "subjectAltName=IP:192.168.1.100"
+
+    client:
+    # 1. Generate client.key (same as before)
+    openssl genrsa -out client.key 2048
+
+    # 2. Create a self-signed certificate for the "client CA"
+    openssl req -x509 -new -key client.key -out client.crt \
+    -days 365 -subj "/CN=MyLocalCA"
+
+    # 3. Sign the CSR from the server
+    openssl x509 -req -in server.csr -CA client.crt -CAkey client.key \
+    -CAcreateserial -out server.crt -days 365 \
+    -extfile <(printf "subjectAltName=IP:192.168.1.100")
+    """
 
 def get_uuid(client, name):
     """Get the UUID of the endpoint with the given name."""
@@ -210,8 +247,7 @@ mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt}
 
 if __name__ == "__main__":
     
-    #for endpoint in endpoints:
-        
+    #for endpoint in endpoints:     #TODO: add the code to check if the endpoint is online
         
     args.cleanup and stop_service(args, gcc, clean)
     

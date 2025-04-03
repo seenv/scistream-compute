@@ -7,7 +7,6 @@ from globus_compute_sdk import Executor, ShellFunction
 def p2cs(args, endpoint_name, uuid):
     """Start the Producer's S2CS on the endpoint with the given arguments."""
 
-
     cmd =   f"""
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
@@ -42,13 +41,16 @@ def p2cs(args, endpoint_name, uuid):
 
         except Exception as e:
             logging.error(f"Producer's S2CS Exception: {e}")
+            sys.exit(1)
+            
         #gce.shutdown(wait=False, cancel_futures=False)
         print(f"Producer's S2CS is completed on the endpoint {endpoint_name.capitalize()} \n")     #TODO: first check if the s2cs is online and then print this message
 
 
 
 def c2cs(args, endpoint_name, uuid):
-
+    """Start the Consumer's S2CS on the endpoint with the given arguments."""
+    
     cmd =   f"""
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
@@ -83,6 +85,8 @@ def c2cs(args, endpoint_name, uuid):
 
         except Exception as e:
             logging.error(f"Consumer's S2CS Exception: {e}")
+            sys.exit(1)
+            
         #gce.shutdown(wait=False, cancel_futures=False)
         print(f"Consumer's S2CS is completed on the endpoint {endpoint_name.capitalize()} \n")     #TODO: first check if the s2cs is online and then print this message
 
@@ -153,6 +157,7 @@ def inbound(args, endpoint_name,uuid, max_retries=3, delay=2):
         except Exception as e:
             logging.error(f"INBOUND Exception: {e}")
             print(f"The Inbound Connection failed due to the following Exception: {e} \n")
+            sys.exit(1)
 
         logging.error("INBOUND: The Inbound Connection failed to extract Stream UID and Port.")
         print(f"The Inbound Connection failed to extract Stream UID and Port. \n")
@@ -208,6 +213,7 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
         except Exception as e:
             logging.error(f"OUTBOUND Exception: {e}")
             print(f"The Outbound Connection failed due to the following Exception: {e}")
+            sys.exit(1)
 
         print(f"The Outbound Connection is completed on the endpoint {endpoint_name.capitalize()} \n")
         logging.debug(f"OUTBOUND: The Outbound Connection is completed on the endpoint {endpoint_name.capitalize()}")
@@ -241,6 +247,7 @@ def stop_s2cs(args, endpoint_name , uuid):
         except Exception as e:
             logging.error(f"KILL_ORPHANS Exception: {e}")
             print(f"Killing the orphaned processes failed due to the following Exception: {e}")
+            sys.exit(1)
 
         print(f"Killing the orphaned processes is completed on the endpoint {endpoint_name.capitalize()} \n")
         logging.debug(f"KILL_ORPHANS: Killing orphaned processes is completed on the endpoint {endpoint_name.capitalize()}")
