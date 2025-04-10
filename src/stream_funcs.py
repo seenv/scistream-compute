@@ -195,12 +195,10 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
         print(f"Starting the Outbound Connection: \n"
               f"    endpoint: {endpoint_name.capitalize()} \n"
               f"    endpoint uid: {uuid} \n"
-              f"    sync_port: {args.sync_port} \n"
               f"    p2cs_listener: {args.p2cs_listener} \n"
+              f"    c2cs_listener: {args.c2cs_listener} \n"
               f"    p2cs_ip: {args.p2cs_ip} \n"
               f"    cons_ip: {args.cons_ip} \n"
-              f"    c2cs_listener: {args.c2cs_listener} \n"
-              f"    outbound_dst_ports: {args.outbound_dst_ports} \n"
               f"\n")
         logging.debug(f"OUTBOUND: Starting Outbound connection on endpoint ({endpoint_name.capitalize()}) with args: \n{args} \n")
         future = gce.submit(ShellFunction(cmd))
@@ -223,6 +221,7 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
 
 def stop_s2cs(args, endpoint_name , uuid):
     """Killing the orphaned processes initiated via globus worker"""
+    #TODO: now that we have the uuid we can just kill the pid as they are the same! or can we?!
 
     cmd =   f"""
             bash -c '
@@ -235,7 +234,14 @@ def stop_s2cs(args, endpoint_name , uuid):
         
         print(f"Killing the orphaned processes: \n"
               f"    endpoint: {endpoint_name.capitalize()} \n"
-              f"    Args: {args} \n")
+              f"    endpoint uid: {uuid} \n"
+              f"    sync_port: {args.sync_port} \n"
+              f"    p2cs_listener: {args.p2cs_listener} \n"
+              f"    p2cs_ip: {args.p2cs_ip} \n"
+              f"    cons_ip: {args.cons_ip} \n"
+              f"    c2cs_listener: {args.c2cs_listener} \n"
+              f"    outbound_dst_ports: {args.outbound_dst_ports} \n"
+              f"\n")
         logging.debug(f"KILL_ORPHANS: Killing orphaned processes on endpoint ({endpoint_name.capitalize()}) with args: \n{args}")
         future = gce.submit(ShellFunction(cmd))
 
