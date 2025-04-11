@@ -4,7 +4,6 @@ import threading, queue, time, sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
 from stream_funcs import p2cs, c2cs, inbound, outbound, stop_s2cs
-from iperf_funcs import server, client
 from mini_funcs import daq, dist, sirt
 import asyncio
 
@@ -38,11 +37,21 @@ def get_args():
     argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
     argparser.add_argument('--prod_ip', help="producer's IP address", default='128.135.24.117')
     argparser.add_argument('--cons_ip', help="consumer's IP address", default="128.135.24.118")
-    argparser.add_argument('--inbound_starter', help="initiate the inbound stream connection", default="swell")             # the server certification should be specified
-    argparser.add_argument('--outbound_starter', help="initiate the outbound stream connection", default="swell")           # the server certification should be specified
-    argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=False)
+    argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=True)
     argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
 
+    argparser.add_argument('--p2cs_ep', help="p2cs endpoint name", default="thats")
+    argparser.add_argument('--c2cs_ep', help="c2cs endpoint name", default="neat")
+    argparser.add_argument('--inbound_ep', help="inbound initiator endpoint name", default="swell")
+    argparser.add_argument('--outbound_ep', help="outbound initiator endpoint name", default="swell")
+    argparser.add_argument('--p2cs_key', help="p2cs key", default="p2cs")
+    argparser.add_argument('--c2cs_key', help="c2cs key", default="c2cs")
+    argparser.add_argument('--inbound_key', help="inbound key", default="swell")
+    argparser.add_argument('--outbound_key', help="outbound key", default="swell")
+    #argparser.add_argument('--inbound_ep', help="initiate the inbound stream connection", default="swell")             # the server certification should be specified
+    #argparser.add_argument('--outbound_ep', help="initiate the outbound stream connection", default="swell")           # the server certification should be specified
+
+    
     argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess, Haproxy", default="StunnelSubprocess")
     argparser.add_argument('--rate', type=int, help="transfer rate",default=10000)         #TODO: Add it to the command lines
     argparser.add_argument('--num_conn', type=int, help="THe number of specified ports", default=5)
@@ -52,8 +61,6 @@ def get_args():
     argparser.add_argument('-m', '--mini', action='store_true', help="Run the mini-apps", default=False)
     argparser.add_argument('--num_mini', type=int, help="The number of concurrent aps-mini-app run", default=5)
     
-    argparser.add_argument('-i', '--iperf', action='store_true', help="Run the iperf3", default=False)
-    argparser.add_argument('--num_iperf', type=int, help="The number of concurrent iperf3 run", default=3)
 
     return argparser.parse_args()
 
@@ -70,8 +77,6 @@ def get_status(gcc, uuid, name):
 
 #TODO: add the code to create the keys on each endpoint
 #TODO: the Client system also needs an endpoint to creat the keys?!
-#TODO: change it so it first checks if all are available and then starts the functions
-#TODO: modify the code so that if in each func it found that the endpoint is offline, it kills all the previous threads
 #TODO: also seperate the get_uuid and get_status functions so we don't sys.exit before we kill all the previous threads (exit steps)
 #TODO: get the name of the endpoint from the command line and not hardcoded
 
@@ -112,36 +117,56 @@ def get_status(gcc, uuid, name):
     -extfile <(printf "subjectAltName=IP:192.168.1.100")
     """
 
-def get_uuid(client, name):
-    """Get the UUID of the endpoint with the given name."""
+
+def health_check():
+    """Check the health of the endpoints and log the status."""
+    
+    print("Checking the health of the endpoints...")
+    logging.info("Checking the health of the endpoints...")
+    
+    ep_mapping = {}
+    
     try:
-        for ep in endpoints:
-            endpoint_name = ep.get('name', '').strip().lower()
-            if endpoint_name == name.strip().lower():
+        for name, func in merge_list.items():
+            ep_name = name.strip().lower()
+            if ep_name in ep_names:
+                ep = next(ep for ep in endpoints if ep.get('name', '').strip().lower() == ep_name)
                 uuid = ep.get('uuid')
-                print(f"UUID for {name}: {uuid}")
-                logging.info(f"UUID for {name}: {uuid}")
-                
-                endpoint_status = client.get_endpoint_status(uuid)
-                status = endpoint_status.get("status", "offline")
-                if status == "offline":
-                    print(f"Status for {name}: {status} \n")
-                    logging.info(f"Status for {name}: {status} \n")
-                    #raise ValueError("Endpoint status is offline!")
+                ep_mapping[ep_name] = uuid
+                if gcc.get_endpoint_status(uuid).get('status', 'offline') != 'online':
+                    print(f"Endpoint {name} is offline")
+                    logging.error(f"Endpoint {name} is offline")
                     sys.exit(1)
-                
-                print(f"Status for {name}: {status} \n")
-                logging.info(f"Status for {name}: {status} \n")
-                return uuid
-            
-        print(f"UUID for {name} not found")
-        logging.debug(f"UUID for {name} not found")
+        print(f"All endpoints are online and running \n")
+        return ep_mapping
+    except Exception as e:
+        print(f"Error checking endpoint status: {str(e)}")
+        logging.error(f"Error checking endpoint status: {str(e)}")
         sys.exit(1)
+
+
+
+def get_uuid(name):
+    """Get the UUID of the endpoint with the given name."""
+    
+    try:
+        uuid = ep_mapping.get(name.strip().lower())
+        if not uuid or gcc.get_endpoint_status(uuid).get('status', 'offline') != 'online':
+                status = gcc.get_endpoint_status(uuid).get('status', 'offline')
+                print(f"Status of endpoint {name} has changed to {status} \n")
+                logging.info(f"Status of endpoint {name} has changed to {status} \n")
+                #raise ValueError("Endpoint status is offline!")
+                #TODO: instead of exit, it should start rolling back (also kill the previous threads, etc.)
+                sys.exit(1)         
+                
+        return uuid
+    
     except Exception as e:
         logging.debug(f"Error fetching UUID for {name}: {str(e)}")
         sys.exit(1)
+            
 
-def stop_service(args, gcc, clean):
+def stop_service():
     """
     Kill the orphan processes of the S2CS on the producer and consumer endpoints.
     Since the processes are disowned using the 'setsid', they need to be killed
@@ -152,7 +177,7 @@ def stop_service(args, gcc, clean):
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
     for clean_s2cs_endpoint, _ in clean.items():
-        thread = threading.Thread(target=stop_s2cs,  args=(args, clean_s2cs_endpoint, get_uuid(gcc, clean_s2cs_endpoint)), daemon=True)
+        thread = threading.Thread(target=stop_s2cs,  args=(args, clean_s2cs_endpoint, get_uuid(clean_s2cs_endpoint)), daemon=True)
         kill_threads[thread] = clean_s2cs_endpoint
         thread.start()
         logging.debug(f"MAIN: Starting killing Orphan processes on '{clean_s2cs_endpoint}' ")
@@ -163,14 +188,14 @@ def stop_service(args, gcc, clean):
         
         
         
-def start_s2cs(args, gcc, s2cs):
+def start_s2cs():
     """Start the S2CS functions "p2cs" and "c2cs" on the producer and consumer endpoints."""
 
     s2cs_threads = {}
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
     for s2cs_endpoint, func in s2cs.items():
-        thread = threading.Thread(target=func,  args=(args, s2cs_endpoint, get_uuid(gcc, s2cs_endpoint)), daemon=True)
+        thread = threading.Thread(target=func,  args=(args, s2cs_endpoint, get_uuid(s2cs_endpoint)), daemon=True)
         
         s2cs_threads[thread] = s2cs_endpoint
         thread.start()
@@ -182,14 +207,14 @@ def start_s2cs(args, gcc, s2cs):
 
 
 
-def start_connection(args, gcc, connections):
+def start_connection():
     """Manage the full connection process, optionally running inbound and outbound in parallel."""
 
-    connections = {args.inbound_starter: inbound, args.outbound_starter: outbound}
+    connections = {args.inbound_ep: inbound, args.outbound_ep: outbound}
 
-    stream_uid, ports = inbound(args, args.inbound_starter,  get_uuid(gcc, args.inbound_starter))
+    stream_uid, ports = inbound(args, args.inbound_ep,  get_uuid(args.inbound_ep))
     if stream_uid and len(ports) == int(args.num_conn):
-        outbound(args, args.inbound_starter, get_uuid(gcc, args.outbound_starter), stream_uid, ports) 
+        outbound(args, args.inbound_ep, get_uuid(args.outbound_ep), stream_uid, ports) 
     else:
         logging.error("Failed to retrieve Stream UID and Port. Outbound will not start.")
         #exit(1)
@@ -202,7 +227,7 @@ def start_mini():
     mini = {}
 
     for mini_endpoint, func in mini_funcs.items():
-        uuid = get_uuid(gcc, mini_endpoint)
+        uuid = get_uuid(mini_endpoint)
         thread = threading.Thread(target=func, args= (args, uuid), daemon=True)
         mini[thread] = mini_endpoint
     
@@ -213,46 +238,46 @@ def start_mini():
         thread.join()
         print(f"Task Execution on Endpoint '{mini[thread]}' has Finished")
         
-        
-        
-def start_perf(args, gcc, iperf_funcs):
-    """Starts the iperf functions on the producer and consumer endpoints."""
-
-    iperf = {}
-
-    for iperf_endpoint, func in iperf_funcs.items():
-        uuid = get_uuid(gcc, iperf_endpoint)
-        thread = threading.Thread(target=func, args= (args, uuid), daemon=True)
-        iperf[thread] = iperf_endpoint
-    
-    for thread in iperf:
-        thread.start()
-
-    for thread in iperf:
-        thread.join()
-        print(f"Task Execution on Endpoint '{iperf[thread]}' has Finished")
-
 
 
 gcc = Client()
 args = get_args()
-endpoints = gcc.get_endpoints()
 
-s2cs = {"that": p2cs, "neat": c2cs}
-connections = {args.inbound_starter: inbound, args.outbound_starter: outbound}
-clean = {"that": stop_s2cs, "neat": stop_s2cs}
-iperf_funcs = {"this": server, "swell": client}
+#keys = {args.p2cs_ep: p2cs_key, args.c2cs_ep: c2cs_key, args.inbound_ep: inbound_key, args.outbound_ep: outbound_key}
+s2cs = {args.p2cs_ep: p2cs, args.c2cs_ep: c2cs}
+connections = {args.inbound_ep: inbound, args.outbound_ep: outbound}
+clean = {args.p2cs_ep: stop_s2cs, args.c2cs_ep: stop_s2cs}
 mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt} 
+
+merge_list = (s2cs | connections | mini_funcs) if args.mini else (s2cs | connections)
+endpoints = gcc.get_endpoints()
+ep_names = {ep.get('name', '').strip().lower() for ep in endpoints}
 
 
 if __name__ == "__main__":
     
-    #for endpoint in endpoints:     #TODO: add the code to check if the endpoint is online
-        
-    args.cleanup and stop_service(args, gcc, clean)
+    ep_mapping = health_check()
+    args.cleanup and stop_service()
     
-    start_s2cs(args, gcc, s2cs)
-    start_connection(args, gcc, connections)
+    start_s2cs()
+    start_connection()
     
-    args.iperf and start_perf(args, gcc, iperf_funcs)
     args.mini and start_mini()
+    
+    
+"""
+#TODO: change it to the following, and write the variables, lists, etc. that are sent to different functions
+
+
+def main():
+    ep_mapping = health_check()
+    args.cleanup and stop_service()
+    
+    start_s2cs()
+    start_connection()
+    
+    args.mini and start_mini()
+
+if __name__ == "__main__":
+    main()
+    """
