@@ -3,7 +3,9 @@ import logging
 import threading, queue, time, sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from globus_compute_sdk import Client 
-from stream_funcs import p2cs, c2cs, inbound, outbound, stop_s2cs
+from stream_funcs import p2cs, c2cs, inbound, outbound
+from kill_funcs import stop_s2cs, stop_s2uc
+from key_funcs import key_gen, key_dist, crt_dist
 from mini_funcs import daq, dist, sirt
 import asyncio
 
@@ -26,32 +28,34 @@ logging.basicConfig(
     #force=True
 )
 
-
+#TODO: get the ip addresses using the globus compute from the socket but should find the local and the public out of them!!!!
 
 def get_args():
     argparser = argparse.ArgumentParser(description="arguments")
     argparser.add_argument('--sync_port', help="syncronization port",default="5000")
-    argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="128.135.24.119")
-    argparser.add_argument('--p2cs_ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
-    argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="128.135.24.120")
-    argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
-    argparser.add_argument('--prod_ip', help="producer's IP address", default='128.135.24.117')
-    argparser.add_argument('--cons_ip', help="consumer's IP address", default="128.135.24.118")
+    #argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="128.135.24.119")
+    #argparser.add_argument('--p2cs_ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
+    #argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="128.135.24.120")
+    #argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
+    #argparser.add_argument('--prod_ip', help="producer's IP address", default='128.135.24.117')
+    #argparser.add_argument('--cons_ip', help="consumer's IP address", default="128.135.24.118")
+    argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="10.140.81.77")                        #192.168.210.11
+    argparser.add_argument('--p2cs_ip', help="IP address of the s2cs on producer side", default="192.5.87.71")
+    argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="10.52.2.147")                                    #192.168.230.10
+    argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='129.114.108.216')
+    argparser.add_argument('--prod_ip', help="producer's IP address", default='10.140.82.122')                              #192.168.210.10
+    argparser.add_argument('--cons_ip', help="consumer's IP address", default="10.52.2.207")                                 #192.168.230.11
+    argparser.add_argument('--inbound_ip', help='inbound IP address', default='128.135.24.118')
+    argparser.add_argument('--outbound_ip', help='outbound IP address', default='128.135.24.118')
     argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=True)
     argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
 
-    argparser.add_argument('--p2cs_ep', help="p2cs endpoint name", default="thats")
-    argparser.add_argument('--c2cs_ep', help="c2cs endpoint name", default="neat")
-    argparser.add_argument('--inbound_ep', help="inbound initiator endpoint name", default="swell")
-    argparser.add_argument('--outbound_ep', help="outbound initiator endpoint name", default="swell")
-    argparser.add_argument('--p2cs_key', help="p2cs key", default="p2cs")
-    argparser.add_argument('--c2cs_key', help="c2cs key", default="c2cs")
-    argparser.add_argument('--inbound_key', help="inbound key", default="swell")
-    argparser.add_argument('--outbound_key', help="outbound key", default="swell")
-    #argparser.add_argument('--inbound_ep', help="initiate the inbound stream connection", default="swell")             # the server certification should be specified
-    #argparser.add_argument('--outbound_ep', help="initiate the outbound stream connection", default="swell")           # the server certification should be specified
+    argparser.add_argument('--p2cs_ep', help="p2cs endpoint name", default="p2cs")
+    argparser.add_argument('--c2cs_ep', help="c2cs endpoint name", default="c2cs")
+    argparser.add_argument('--inbound_ep', help="inbound initiator endpoint name", default="swell")                 # the server certification should be specified
+    argparser.add_argument('--outbound_ep', help="outbound initiator endpoint name", default="swell")               # the server certification should be specified
+    #argparser.add_argument('--p2cs_key', help="p2cs key", default="p2cs")                                          #TODO: parse the key generator and then check if it is not p2cs, add it to the key dist too!
 
-    
     argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess, Haproxy", default="StunnelSubprocess")
     argparser.add_argument('--rate', type=int, help="transfer rate",default=10000)         #TODO: Add it to the command lines
     argparser.add_argument('--num_conn', type=int, help="THe number of specified ports", default=5)
@@ -75,7 +79,7 @@ def get_status(gcc, uuid, name):
     task_id = gcc.get_worker_hardware_details(uuid)
     result_status = gcc.get_result(task_id)
 
-#TODO: add the code to create the keys on each endpoint
+#TODO: add the code to create the keys on each endpoint and create an env for it, so it gets the key address!
 #TODO: the Client system also needs an endpoint to creat the keys?!
 #TODO: also seperate the get_uuid and get_status functions so we don't sys.exit before we kill all the previous threads (exit steps)
 #TODO: get the name of the endpoint from the command line and not hardcoded
@@ -87,7 +91,7 @@ def get_status(gcc, uuid, name):
     openssl req -x509 -nodes -days 365 \
     -newkey rsa:2048 \
     -keyout server.key -out server.crt \
-    -subj "/CN=172.17.0.2" \
+    -subj "/CN=192.168.210.11" \
     -addext "subjectAltName=IP:172.17.0.2"
     
     or using Certificate Signing Request (CSR):
@@ -134,7 +138,7 @@ def health_check():
                 uuid = ep.get('uuid')
                 ep_mapping[ep_name] = uuid
                 if gcc.get_endpoint_status(uuid).get('status', 'offline') != 'online':
-                    print(f"Endpoint {name} is offline")
+                    print(f"Endpoint {name} with UID {uuid} is offline")
                     logging.error(f"Endpoint {name} is offline")
                     sys.exit(1)
         print(f"All endpoints are online and running \n")
@@ -176,15 +180,34 @@ def stop_service():
     kill_threads = {}
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
-    for clean_s2cs_endpoint, _ in clean.items():
-        thread = threading.Thread(target=stop_s2cs,  args=(args, clean_s2cs_endpoint, get_uuid(clean_s2cs_endpoint)), daemon=True)
-        kill_threads[thread] = clean_s2cs_endpoint
+    for endpoint, func in clean.items():
+        thread = threading.Thread(target=func,  args=(args, endpoint, get_uuid(endpoint)), daemon=True)
+        kill_threads[thread] = endpoint
         thread.start()
-        logging.debug(f"MAIN: Starting killing Orphan processes on '{clean_s2cs_endpoint}' ")
+        logging.debug(f"MAIN: Starting killing Orphan processes on '{endpoint}' ")
 
-    for thread, clean_s2cs_endpoint in kill_threads.items():
+    for thread, endpoint in kill_threads.items():
         thread.join()
-        logging.debug(f"MAIN: Finished killing Orphan processes on '{clean_s2cs_endpoint}' ")
+        logging.debug(f"MAIN: Finished killing Orphan processes on '{endpoint}' ")
+        
+        
+        
+        
+def start_keygen():
+    """Generate the keys for the endpoints."""
+        
+    key, crt = key_gen(args, args.p2cs_ep, get_uuid(args.p2cs_ep))
+    if key is not None and crt is not None:
+        logging.debug(f"MAIN: The Key Generation '{args.p2cs_ep}' has finished")
+        key_dist(args, args.c2cs_ep, get_uuid(args.c2cs_ep), key, crt)
+        if args.inbound_ep != args.outbound_ep:
+            crt_dist(args, args.inbound_ep, get_uuid(args.inbound_ep), crt)
+            crt_dist(args, args.outbound_ep, get_uuid(args.outbound_ep), crt)
+        else:
+            crt_dist(args, args.inbound_ep, get_uuid(args.inbound_ep), crt)
+    else:
+        logging.error(f"MAIN: The Key Generation '{args.p2cs_en}' has failed to generate the keys")
+        sys.exit(1)
         
         
         
@@ -210,9 +233,10 @@ def start_s2cs():
 def start_connection():
     """Manage the full connection process, optionally running inbound and outbound in parallel."""
 
-    connections = {args.inbound_ep: inbound, args.outbound_ep: outbound}
+    #connections = {args.inbound_ep: inbound, args.outbound_ep: outbound}
 
     stream_uid, ports = inbound(args, args.inbound_ep,  get_uuid(args.inbound_ep))
+    
     if stream_uid and len(ports) == int(args.num_conn):
         outbound(args, args.inbound_ep, get_uuid(args.outbound_ep), stream_uid, ports) 
     else:
@@ -243,7 +267,8 @@ def start_mini():
 gcc = Client()
 args = get_args()
 
-#keys = {args.p2cs_ep: p2cs_key, args.c2cs_ep: c2cs_key, args.inbound_ep: inbound_key, args.outbound_ep: outbound_key}
+#keys = {args.p2cs_ep: p2cs, args.c2cs_ep: key_dist, args.inbound_ep: key_dist, args.outbound_ep: key_dist}
+keys = {args.p2cs_ep: key_gen}
 s2cs = {args.p2cs_ep: p2cs, args.c2cs_ep: c2cs}
 connections = {args.inbound_ep: inbound, args.outbound_ep: outbound}
 clean = {args.p2cs_ep: stop_s2cs, args.c2cs_ep: stop_s2cs}
@@ -258,6 +283,8 @@ if __name__ == "__main__":
     
     ep_mapping = health_check()
     args.cleanup and stop_service()
+    
+    start_keygen()
     
     start_s2cs()
     start_connection()
