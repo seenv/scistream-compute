@@ -1,7 +1,5 @@
-import logging
-import time
+import logging, time, sys
 from globus_compute_sdk import Executor, ShellFunction
-
 
 
 def p2cs(args, endpoint_name, uuid):
@@ -11,10 +9,11 @@ def p2cs(args, endpoint_name, uuid):
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
-            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --num_conn "{args.num_conn}" --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
+            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt=$HAPROXY_CONFIG_PATH/server.crt --server_key=$HAPROXY_CONFIG_PATH/server.key --verbose --listener_ip={args.p2cs_listener} --type=StunnelSubprocess > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt=$HAPROXY_CONFIG_PATH/server.crt --server_key=$HAPROXY_CONFIG_PATH/server.key --verbose --listener_ip={args.p2cs_listener} --type=StunnelSubprocess > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
             sleep 5 && cat "$HAPROXY_CONFIG_PATH/p2cs.log"
             '
-            """            
+            """
+                #if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --num_conn "{args.num_conn}" --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.p2cs_listener}" --type="{args.type}" > "$HAPROXY_CONFIG_PATH/p2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
                 #s2cs --server_crt=/home/seena/scistream/server.crt --server_key=/home/seena/scistream/server.key --verbose  --listener_ip=128.135.24.119 --type="StunnelSubprocess"  | tee "$HAPROXY_CONFIG_PATH/p2cs.log"  2>&1 &
                 #TODO: Check if s2cs update will be compatible with the current start s2cs command conditions (runs only if the s2cs is not running)
 
@@ -55,10 +54,11 @@ def c2cs(args, endpoint_name, uuid):
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
-            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --num_conn "{args.num_conn}" --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
+            if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt=$HAPROXY_CONFIG_PATH/server.crt --server_key=$HAPROXY_CONFIG_PATH/server.key --verbose --listener_ip={args.c2cs_listener} --type=StunnelSubprocess  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt=$HAPROXY_CONFIG_PATH/server.crt --server_key=$HAPROXY_CONFIG_PATH/server.key --verbose --listener_ip={args.c2cs_listener} --type=StunnelSubprocess  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
             sleep 5 && cat "$HAPROXY_CONFIG_PATH/c2cs.log"
             '
             """
+            #if [[ -z "$(ps -ef | grep "[ ]$(cat /tmp/.scistream/s2cs.pid)")" ]]; then setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --num_conn "{args.num_conn}" --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; else setsid stdbuf -oL -eL s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip="{args.c2cs_listener}" --type="{args.type}"  > "$HAPROXY_CONFIG_PATH/c2cs.log" 2>&1 & echo $! > "$HAPROXY_CONFIG_PATH/s2cs.pid"; fi
             # s2cs --server_crt="/home/seena/scistream/server.crt" --server_key="/home/seena/scistream/server.key" --verbose --listener_ip=128.135.24.120 --type="StunnelSubprocess"  > "$HAPROXY_CONFIG_PATH/c2cs.log" &
             #TODO: Check if s2cs update will be compatible with the current start s2cs command conditions (runs only if the s2cs is not running)
 
@@ -101,13 +101,14 @@ def inbound(args, endpoint_name,uuid, max_retries=3, delay=2):
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
             sleep 5
-            s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.prod_ip}" --num_conn "{args.num_conn}" --receiver_ports="{args.inbound_src_ports}" --s2cs "{args.p2cs_ip}:5000"  > "$HAPROXY_CONFIG_PATH/conin.log" 2>&1 &
+            s2uc inbound-request --server_cert=$HAPROXY_CONFIG_PATH/server.crt --remote_ip {args.prod_ip} --num_conn 5 --receiver_ports=5074,5075,5076,5077,5078  --s2cs {args.p2cs_ip}:{args.sync_port}  > "$HAPROXY_CONFIG_PATH/conin.log" 2>&1 &
             while ! grep -q "prod_listeners:" "$HAPROXY_CONFIG_PATH/conin.log"; do sleep 1; done
             sleep 5
             cat "$HAPROXY_CONFIG_PATH/conin.log"
             '
             """
-            # s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.24.117  --num_conn 5 --receiver_ports=5074,5075,5076,37000,47000  --s2cs 128.135.164.119:5000
+            #s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.prod_ip}" --num_conn "{args.num_conn}" --receiver_ports="{args.inbound_src_ports}" --s2cs "{args.p2cs_ip}:{args.sync_port}"  > "$HAPROXY_CONFIG_PATH/conin.log" 2>&1 &
+            # s2uc inbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.24.117  --num_conn 5 --receiver_ports=5074,5075,5076,37000,47000  --s2cs 128.135.164.119:{args.sync_port}
 
             #TODO: instead of adding sleep 5 secs before running the code, check if there exist the p2cs.log is not empty and run then run the command
             #TODO: better way to do this is to check whether the port is open or not
@@ -166,6 +167,8 @@ def inbound(args, endpoint_name,uuid, max_retries=3, delay=2):
 
 
 
+
+
 def outbound(args, endpoint_name, uuid, stream_uid, ports):
     """Start the outbound connection using the extracted Stream UID and Port."""
 
@@ -181,14 +184,15 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
             bash -c '
             if [[ -z "$HAPROXY_CONFIG_PATH" ]]; then HAPROXY_CONFIG_PATH="/tmp/.scistream"; fi
             mkdir -p "$HAPROXY_CONFIG_PATH"
-            setsid stdbuf -oL -eL s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":5000  --num_conn "{args.num_conn}" --receiver_ports="{listen_ports}" "{stream_uid}" 128.135.164.119:5100,128.135.164.119:5101,128.135.164.119:5102,128.135.164.119:5103,128.135.164.119:5104  > "$HAPROXY_CONFIG_PATH/conout.log" &
+            setsid stdbuf -oL -eL s2uc outbound-request --server_cert=$HAPROXY_CONFIG_PATH/server.crt --remote_ip {args.c2cs_ip} --s2cs {args.c2cs_ip}:{args.sync_port}  --receiver_ports=5100 "{stream_uid}" {args.p2cs_ip}:5100,{args.p2cs_ip}:5101,{args.p2cs_ip}:5102,{args.p2cs_ip}:5103,{args.p2cs_ip}:5104  > "$HAPROXY_CONFIG_PATH/conout.log" &
             while ! grep -q "Hello message sent successfully" "$HAPROXY_CONFIG_PATH/conout.log"; do sleep 1 ; done
             sleep 1
             cat "$HAPROXY_CONFIG_PATH/conout.log"
             '
             """
-            #s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":5000  --num_conn "{args.num_conn}" --receiver_ports="{listen_ports}" "{stream_uid}" "{args.p2cs_ip}":"{listen_ports}",  > "$HAPROXY_CONFIG_PATH/conout.log" &
-            # s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:5000  --receiver_ports=5100 0cddc36c-f3b5-11ef-9275-aee3018ac00c 128.135.164.119:5100,128.135.164.119:5101,128.135.164.119:5102,128.135.164.119:5103,128.135.164.119:5104          "{args.p2cs_ip}":"{listen_ports}"   
+            #setsid stdbuf -oL -eL s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":{args.sync_port}  --num_conn "{args.num_conn}" --receiver_ports="{listen_ports}" "{stream_uid}" 128.135.164.119:5100,128.135.164.119:5101,128.135.164.119:5102,128.135.164.119:5103,128.135.164.119:5104  > "$HAPROXY_CONFIG_PATH/conout.log" &
+            #s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip "{args.p2cs_ip}" --s2cs "{args.c2cs_listener}":{args.sync_port}  --num_conn "{args.num_conn}" --receiver_ports="{listen_ports}" "{stream_uid}" "{args.p2cs_ip}":"{listen_ports}",  > "$HAPROXY_CONFIG_PATH/conout.log" &
+            # s2uc outbound-request --server_cert="/home/seena/scistream/server.crt" --remote_ip 128.135.164.119 --s2cs 128.135.24.120:{args.sync_port}  --receiver_ports=5100 0cddc36c-f3b5-11ef-9275-aee3018ac00c 128.135.164.119:5100,128.135.164.119:5101,128.135.164.119:5102,128.135.164.119:5103,128.135.164.119:5104          "{args.p2cs_ip}":"{listen_ports}"   
 
     with Executor(endpoint_id=uuid) as gce:
 
@@ -219,51 +223,6 @@ def outbound(args, endpoint_name, uuid, stream_uid, ports):
     
 
 
-def stop_s2cs(args, endpoint_name , uuid):
-    """Killing the orphaned processes initiated via globus worker"""
-    #TODO: now that we have the uuid we can just kill the pid as they are the same! or can we?!
-
-    cmd =   f"""
-            bash -c '
-            pgrep -x stunnel | while read -r pid; do ppid=$(ps -o ppid= -p "$pid" | tr -d " "); sudo kill -9 "$pid" "$ppid"; done >> /tmp/kill.log 2>&1
-            sleep 5 && echo "$(ps -ef | grep stunnel --color=auto )" >> /tmp/kill.log
-            '
-            """
-    
-    with Executor(endpoint_id=uuid) as gce:
-        
-        print(f"Killing the orphaned processes: \n"
-              f"    endpoint: {endpoint_name.capitalize()} \n"
-              f"    endpoint uid: {uuid} \n"
-              f"    sync_port: {args.sync_port} \n"
-              f"    p2cs_listener: {args.p2cs_listener} \n"
-              f"    p2cs_ip: {args.p2cs_ip} \n"
-              f"    cons_ip: {args.cons_ip} \n"
-              f"    c2cs_listener: {args.c2cs_listener} \n"
-              f"    outbound_dst_ports: {args.outbound_dst_ports} \n"
-              f"\n")
-        logging.debug(f"KILL_ORPHANS: Killing orphaned processes on endpoint ({endpoint_name.capitalize()}) with args: \n{args}")
-        future = gce.submit(ShellFunction(cmd))
-
-        try:
-            result = future.result()
-            logging.debug(f"KILL_ORPHANS Output: {result.stdout}")
-            #logging.debug(f"KILL_ORPHANS Errors: {result.stderr}")
-
-        except Exception as e:
-            logging.error(f"KILL_ORPHANS Exception: {e}")
-            print(f"Killing the orphaned processes failed due to the following Exception: {e}")
-            sys.exit(1)
-
-        print(f"Killing the orphaned processes is completed on the endpoint {endpoint_name.capitalize()} \n")
-        logging.debug(f"KILL_ORPHANS: Killing orphaned processes is completed on the endpoint {endpoint_name.capitalize()}")
-        #gce.shutdown(wait=True, cancel_futures=False)
-        
-        
-        
-        
-        
-        
         
         
         """            pids=$(pgrep -f "s2cs")
