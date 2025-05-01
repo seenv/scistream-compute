@@ -47,7 +47,7 @@ def get_args():
     argparser.add_argument('--cons_ip', help="consumer's IP address", default="10.52.2.207")                                 #192.168.230.11
     argparser.add_argument('--inbound_ip', help='inbound IP address', default='128.135.24.118')
     argparser.add_argument('--outbound_ip', help='outbound IP address', default='128.135.24.118')
-    argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=True)
+    argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=True) #for test purposes, otherwise should be default=False
     argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
 
     argparser.add_argument('--p2cs_ep', help="p2cs endpoint name", default="p2cs")
@@ -84,42 +84,6 @@ def get_status(gcc, uuid, name):
 #TODO: also seperate the get_uuid and get_status functions so we don't sys.exit before we kill all the previous threads (exit steps)
 #TODO: get the name of the endpoint from the command line and not hardcoded
 
-
-
-    """
-    server: (Self-Signed)
-    openssl req -x509 -nodes -days 365 \
-    -newkey rsa:2048 \
-    -keyout server.key -out server.crt \
-    -subj "/CN=192.168.210.11" \
-    -addext "subjectAltName=IP:172.17.0.2"
-    
-    or using Certificate Signing Request (CSR):
-    on the server
-    openssl req -new -newkey rsa:2048 -nodes \
-    -keyout server.key -out server.csr \
-    -subj "/CN=192.168.1.100" \
-    -addext "subjectAltName=IP:192.168.1.100"
-    
-        Samething as above:
-            openssl genrsa -out server.key 2048
-            openssl req -new -key server.key -out server.csr \
-            -subj "/CN=192.168.1.100" \
-            -addext "subjectAltName=IP:192.168.1.100"
-
-    client:
-    # 1. Generate client.key (same as before)
-    openssl genrsa -out client.key 2048
-
-    # 2. Create a self-signed certificate for the "client CA"
-    openssl req -x509 -new -key client.key -out client.crt \
-    -days 365 -subj "/CN=MyLocalCA"
-
-    # 3. Sign the CSR from the server
-    openssl x509 -req -in server.csr -CA client.crt -CAkey client.key \
-    -CAcreateserial -out server.crt -days 365 \
-    -extfile <(printf "subjectAltName=IP:192.168.1.100")
-    """
 
 
 def health_check():
@@ -197,7 +161,7 @@ def start_keygen():
     """Generate the keys for the endpoints."""
         
     key, crt = key_gen(args, args.p2cs_ep, get_uuid(args.p2cs_ep))
-    if key is not None and crt is not None:
+    if key is not None or crt is not None:
         logging.debug(f"MAIN: The Key Generation '{args.p2cs_ep}' has finished")
         key_dist(args, args.c2cs_ep, get_uuid(args.c2cs_ep), key, crt)
         if args.inbound_ep != args.outbound_ep:
@@ -217,16 +181,16 @@ def start_s2cs():
     s2cs_threads = {}
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
-    for s2cs_endpoint, func in s2cs.items():
-        thread = threading.Thread(target=func,  args=(args, s2cs_endpoint, get_uuid(s2cs_endpoint)), daemon=True)
+    for endpoint, func in s2cs.items():
+        thread = threading.Thread(target=func,  args=(args, endpoint, get_uuid(endpoint)), daemon=True)
         
-        s2cs_threads[thread] = s2cs_endpoint
+        s2cs_threads[thread] = endpoint
         thread.start()
-        logging.debug(f"MAIN: The S2CS '{s2cs_endpoint}' has started")
+        logging.debug(f"MAIN: The S2CS '{endpoint}' has started")
 
-    for thread, s2cs_endpoint in s2cs_threads.items():
+    for thread, endpoint in s2cs_threads.items():
         thread.join()
-        logging.debug(f"MAIN: The S2CS '{s2cs_endpoint}' has finished")
+        logging.debug(f"MAIN: The S2CS '{endpoint}' has finished")
 
 
 
@@ -250,10 +214,9 @@ def start_mini():
 
     mini = {}
 
-    for mini_endpoint, func in mini_funcs.items():
-        uuid = get_uuid(mini_endpoint)
-        thread = threading.Thread(target=func, args= (args, uuid), daemon=True)
-        mini[thread] = mini_endpoint
+    for endpoint, func in mini_funcs.items():
+        thread = threading.Thread(target=func, args= (args, get_uuid(endpoint)), daemon=True)
+        mini[thread] = endpoint
     
     for thread in mini:
         thread.start()
@@ -268,10 +231,10 @@ gcc = Client()
 args = get_args()
 
 #keys = {args.p2cs_ep: p2cs, args.c2cs_ep: key_dist, args.inbound_ep: key_dist, args.outbound_ep: key_dist}
-keys = {args.p2cs_ep: key_gen}
+#keys = {args.p2cs_ep: key_gen}
 s2cs = {args.p2cs_ep: p2cs, args.c2cs_ep: c2cs}
 connections = {args.inbound_ep: inbound, args.outbound_ep: outbound}
-clean = {args.p2cs_ep: stop_s2cs, args.c2cs_ep: stop_s2cs}
+clean = {args.p2cs_ep: stop_s2cs, args.c2cs_ep: stop_s2cs, args.inbound_ep: stop_s2uc}
 mini_funcs = {"daq": daq, "dist": dist, "sirt": sirt} 
 
 merge_list = (s2cs | connections | mini_funcs) if args.mini else (s2cs | connections)

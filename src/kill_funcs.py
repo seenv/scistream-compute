@@ -1,7 +1,7 @@
 import logging, time, sys
 from globus_compute_sdk import Executor, ShellFunction
 
-
+#TODO: add the correct log and also kill the processes correctly
 
 def stop_s2cs(args, endpoint_name , uuid):
     """Killing the orphaned processes initiated via globus worker"""
@@ -9,10 +9,14 @@ def stop_s2cs(args, endpoint_name , uuid):
 
     cmd =   f"""
             bash -c '
-            pgrep -x stunnel | while read -r pid; do ppid=$(ps -o ppid= -p "$pid" | tr -d " "); sudo kill -9 "$pid" "$ppid"; done >> /tmp/kill.log 2>&1
-            sleep 5 && echo "$(ps -ef | grep stunnel --color=auto )" >> /tmp/kill.log
+            [[ -z "$HAPROXY_CONFIG_PATH" ]] && HAPROXY_CONFIG_PATH="/tmp/.scistream" && mkdir -p "$HAPROXY_CONFIG_PATH"
+            pgrep -x stunnel | while read -r pid; do ppid=$(ps -o ppid= -p "$pid" | tr -d " "); sudo kill -9 "$pid" "$ppid"; done 
+            sleep 1 && echo "$(ps -ef | grep stunnel --color=auto )" > $HAPROXY_CONFIG_PATH/kill.log
+            [[ -f $HAPROXY_CONFIG_PATH/s2cs.pid ]] && pid=$(cat /tmp/.scistream/s2cs.pid) && [[ "$pid" =~ ^[0-9]+$ ]] && kill -9 "$pid" >> "$HAPROXY_CONFIG_PATH/kill.log" 2>&1
+            find "$HAPROXY_CONFIG_PATH" ! -name "kill.log" -delete
             '
             """
+            #TODO: modify the echo command so it just prints the stunnel processes
     
     with Executor(endpoint_id=uuid) as gce:
         
@@ -45,10 +49,14 @@ def stop_s2uc(args, endpoint_name , uuid):
 
     cmd =   f"""
             bash -c '
-            pgrep -f "bash -c.*s2uc" | while read -r pid; do ppid=$(ps -o ppid= -p "$pid" | tr -d " "); sudo kill -9 "$pid" "$ppid"; done >> /tmp/kill.log 2>&1
-            sleep 5 && echo "$(ps -ef | grep s2uc --color=auto )" >> /tmp/kill.log
+            [[ -z "$HAPROXY_CONFIG_PATH" ]] && HAPROXY_CONFIG_PATH="/tmp/.scistream" && mkdir -p "$HAPROXY_CONFIG_PATH"
+            [[ -f $HAPROXY_CONFIG_PATH/inbound.pid ]] && pid=$(cat $HAPROXY_CONFIG_PATH/inbound.pid) && [[ "$pid" =~ ^[0-9]+$ ]] && kill -9 "$pid" > "$HAPROXY_CONFIG_PATH/kill.log" 2>&1
+            [[ -f $HAPROXY_CONFIG_PATH/outbound.pid ]] && pid=$(cat $HAPROXY_CONFIG_PATH/outbound.pid) && [[ "$pid" =~ ^[0-9]+$ ]] && kill -9 "$pid" >> "$HAPROXY_CONFIG_PATH/kill.log" 2>&1
+            find "$HAPROXY_CONFIG_PATH" ! -name "kill.log" -delete
             '
             """
+            #pgrep -f "bash -c.*s2uc" | while read -r pid; do ppid=$(ps -o ppid= -p "$pid" | tr -d " "); sudo kill -9 "$pid" "$ppid"; done
+            #sleep 1 && echo "$(ps -ef | grep s2uc --color=auto )" > /tmp/kill.log
     
     with Executor(endpoint_id=uuid) as gce:
         
