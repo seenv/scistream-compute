@@ -39,12 +39,15 @@ def get_args():
     #argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
     #argparser.add_argument('--prod_ip', help="producer's IP address", default='128.135.24.117')
     #argparser.add_argument('--cons_ip', help="consumer's IP address", default="128.135.24.118")
-    argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="10.140.81.77")                        #192.168.210.11
+    
     argparser.add_argument('--p2cs_ip', help="IP address of the s2cs on producer side", default="192.5.87.71")
-    argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="10.52.2.147")                                    #192.168.230.10
     argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='129.114.108.216')
-    argparser.add_argument('--prod_ip', help="producer's IP address", default='10.140.82.122')                              #192.168.210.10
-    argparser.add_argument('--cons_ip', help="consumer's IP address", default="10.52.2.207")                                 #192.168.230.11
+    
+    argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="10.140.83.70")                        #192.168.210.11
+    argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="10.52.2.82 ")                                    #192.168.230.10
+    argparser.add_argument('--prod_ip', help="producer's IP address", default='10.140.82.139')                              #192.168.210.10
+    argparser.add_argument('--cons_ip', help="consumer's IP address", default="10.52.2.249")                                #192.168.230.11
+    
     argparser.add_argument('--inbound_ip', help='inbound IP address', default='128.135.24.118')
     argparser.add_argument('--outbound_ip', help='outbound IP address', default='128.135.24.118')
     argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=True) #for test purposes, otherwise should be default=False
@@ -246,28 +249,10 @@ if __name__ == "__main__":
     
     ep_mapping = health_check()
     args.cleanup and stop_service()
-    
-    start_keygen()
-    
-    start_s2cs()
-    start_connection()
-    
-    args.mini and start_mini()
-    
-    
-"""
-#TODO: change it to the following, and write the variables, lists, etc. that are sent to different functions
-
-
-def main():
-    ep_mapping = health_check()
-    args.cleanup and stop_service()
+    args.cleanup and start_keygen()
     
     start_s2cs()
     start_connection()
     
     args.mini and start_mini()
-
-if __name__ == "__main__":
-    main()
-    """
+    
