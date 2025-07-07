@@ -1,0 +1,19 @@
+- name: Create SSHFS mount directory
+  become: false
+  file:
+    path: ~/merrow
+    state: directory
+    mode: '0755'
+
+
+- name: Mount merrow using sshfs
+  become: false
+  shell: |
+    if mount | grep -q ~/merrow; then
+      echo "Already mounted"
+      exit 0
+    fi
+    echo "Mounting merrow:"
+    timeout 10s sshfs seena@merrow:/home/seena/Projects/chameleon ~/merrow -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3
+  args:
+    executable: /bin/bash

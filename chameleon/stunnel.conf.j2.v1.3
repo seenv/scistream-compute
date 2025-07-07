@@ -1,0 +1,24 @@
+; Stunnel Configuration
+
+; Global Options
+fips = no
+; Specify the pre-shared key file
+PSKsecrets = {{ key_filename }}
+securityLevel = 0
+debug = 7
+output = /tmp/stunnel_tls_debug.log
+foreground = yes
+sslVersionMin = TLSv1.3
+sslVersionMax = TLSv1.3
+sessionCacheTimeout = 0
+pid = {{ pid_filename }}
+
+{% for dst in dest_array %}
+; PSK Client Configuration
+[{{ local_ports[loop.index0] }}]
+client = {{ client }}
+accept = {{ local_ports[loop.index0] }}
+connect = {{ dst.split(':')[0] }}:{{ dst.split(':')[1] }}
+ciphersuites = TLS_AES_128_GCM_SHA256
+
+{% endfor %}

@@ -1,0 +1,1 @@
+ansible-playbook setup/site.yml -i setup/inventory/hosts --ask-pass

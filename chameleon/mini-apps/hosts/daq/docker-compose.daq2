@@ -1,0 +1,24 @@
+services:
+  daq2:
+    image: seenv/aps-mini-apps-daq:latest
+    network_mode: host
+    #command: python /aps-mini-apps/build/python/streamer-daq/DAQStream.py --mode 1 --simulation_file /aps-mini-apps/data/tomo_00058_all_subsampled1p_s1079s1081.h5 --d_iteration 1000 --publisher_addr tcp://*:5077 --iteration_sleep=0 --projection_sleep=0 --synch_addr tcp://*:5076 --synch_count 1
+    command:
+      - python
+      - /aps-mini-apps/build/python/streamer-daq/DAQStream.py
+      - --mode
+      - "1"
+      - --simulation_file
+      - /aps-mini-apps/data/tomo_00058_all_subsampled1p_s1079s1081.h5
+      - --d_iteration
+      - "1000000000000000000"
+      - --publisher_addr
+      - tcp://*:5077
+      - --iteration_sleep
+      - "0"
+      - --projection_sleep
+      - "0"
+      - --synch_addr
+      - tcp://*:5076
+      - --synch_count
+      - "1"

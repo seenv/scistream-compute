@@ -1,0 +1,72 @@
+- name: Generate SSH key if missing
+  become: false
+  command: ssh-keygen -t ed25519 -f {{ ansible_user_dir }}/.ssh/id_ed25519_merrow -q -N ""
+  args:
+    creates: "{{ ansible_user_dir }}/.ssh/id_ed25519_merrow"
+
+- name: Ensure .ssh directory exists
+  become: false
+  file:
+    path: "{{ ansible_user_dir }}/.ssh"
+    state: directory
+    mode: '0700'
+
+- name: Add SSH config entries
+  become: false
+  blockinfile:
+    path: "{{ ansible_user_dir }}/.ssh/config"
+    create: yes
+    mode: '0600'
+    block: |
+      Host linux
+        HostName linux.cs.uchicago.edu
+        User seena
+        PreferredAuthentications publickey
+        IdentityFile {{ ansible_user_dir }}/.ssh/id_ed25519_merrow
+
+      Host merrow
+        HostName merrow.cs.uchicago.edu
+        User seena
+        IdentityFile {{ ansible_user_dir }}/.ssh/id_ed25519_merrow
+        ConnectTimeout 3
+        ProxyJump linux
+
+      Host chi-c2cs
+        HostName 129.114.108.216
+        User cc
+        IdentityFile {{ ansible_user_dir }}/.ssh/texas.pem
+
+      Host chi-p2cs
+        HostName 192.5.87.71
+        User cc
+        IdentityFile {{ ansible_user_dir }}/.ssh/chicago.pem
+
+      Host chi-prod
+        HostName 10.140.82.129
+        User cc
+        ProxyJump chi-p2cs
+        IdentityFile {{ ansible_user_dir }}/.ssh/chicago.pem
+
+      Host chi-cons
+        HostName 10.52.0.242
+        User cc
+        ProxyJump chi-c2cs
+        IdentityFile {{ ansible_user_dir }}/.ssh/texas.pem
+
+
+- name: Copy SSH public key to linux
+  become: false
+  shell: ssh-copy-id -i {{ ansible_user_dir }}/.ssh/id_ed25519_merrow seena@linux.cs.uchicago.edu
+  args:
+    executable: /bin/bash
+
+- name: Copy SSH public key to merrow using ProxyJump
+  become: false
+  shell: ssh-copy-id -o ProxyJump=seena@linux.cs.uchicago.edu -i {{ ansible_user_dir }}/.ssh/id_ed25519_merrow seena@merrow.cs.uchicago.edu
+  args:
+    executable: /bin/bash
+
+- name: Reminder to copy SSH key manually
+  become: false
+  debug:
+    msg: "Run ssh-copy-id manually for linux and merrow to avoid interactive prompts."

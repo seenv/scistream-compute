@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  sirt1:
+    image: seenv/aps-mini-apps-sirt:latest
+    network_mode: host
+    #command: /aps-mini-apps/build/bin/sirt_stream --write-freq 4 --dest-host 10.52.0.244  --dest-port 5200 --window-iter 1 --window-step 1 --window-length 4 -t 2 -c 1427 --pub-addr tcp://*:52000
+    command:
+      - /aps-mini-apps/build/bin/sirt_stream 
+      - --write-freq 
+      - "4" 
+      - --dest-host 
+      - "10.52.0.242"  
+      - --dest-port 
+      - "5201" 
+      - --window-iter 
+      - "1"
+      - --window-step
+      - "1" 
+      - --window-length
+      - "4" 
+      - -t 
+      - "2"
+      - -c 
+      - "1427" 
+      - --pub-addr 
+      - tcp://*:52001
