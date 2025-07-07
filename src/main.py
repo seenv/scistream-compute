@@ -7,6 +7,8 @@ from stream_funcs import p2cs, c2cs, inbound, outbound
 from kill_funcs import stop_s2cs, stop_s2uc
 from key_funcs import key_gen, key_dist, crt_dist
 from mini_funcs import daq, dist, sirt
+from nginx import p2cs_nginx_conf, c2cs_nginx_conf
+from config import get_args
 import asyncio
 
 
@@ -17,7 +19,6 @@ for handler in logging.root.handlers[:]:
 """# Optionally, clear the logging configuration
 logging.shutdown()"""
 
-# Now reconfigure
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -28,48 +29,8 @@ logging.basicConfig(
     #force=True
 )
 
+
 #TODO: get the ip addresses using the globus compute from the socket but should find the local and the public out of them!!!!
-
-def get_args():
-    argparser = argparse.ArgumentParser(description="arguments")
-    argparser.add_argument('--sync_port', help="syncronization port",default="5000")
-    #argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="128.135.24.119")
-    #argparser.add_argument('--p2cs_ip', help="IP address of the s2cs on producer side", default="128.135.164.119")
-    #argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="128.135.24.120")
-    #argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='128.135.164.120')
-    #argparser.add_argument('--prod_ip', help="producer's IP address", default='128.135.24.117')
-    #argparser.add_argument('--cons_ip', help="consumer's IP address", default="128.135.24.118")
-    
-    argparser.add_argument('--p2cs_ip', help="IP address of the s2cs on producer side", default="192.5.87.71")
-    argparser.add_argument('--c2cs_ip', help="IP address of the s2cs on consumer side", default='129.114.108.216')
-    
-    argparser.add_argument('--p2cs_listener', help="listerner's IP of p2cs", default="10.140.83.70")                        #192.168.210.11
-    argparser.add_argument('--c2cs_listener', help="listerner's IP of c2cs", default="10.52.2.82 ")                                    #192.168.230.10
-    argparser.add_argument('--prod_ip', help="producer's IP address", default='10.140.82.139')                              #192.168.210.10
-    argparser.add_argument('--cons_ip', help="consumer's IP address", default="10.52.2.249")                                #192.168.230.11
-    
-    argparser.add_argument('--inbound_ip', help='inbound IP address', default='128.135.24.118')
-    argparser.add_argument('--outbound_ip', help='outbound IP address', default='128.135.24.118')
-    argparser.add_argument('-c', '--cleanup', action="store_true", help="clean up the orphan processes", default=True) #for test purposes, otherwise should be default=False
-    argparser.add_argument('-v', '--verbose', action="store_true", help="Initiate a new stream connection", default=False)
-
-    argparser.add_argument('--p2cs_ep', help="p2cs endpoint name", default="p2cs")
-    argparser.add_argument('--c2cs_ep', help="c2cs endpoint name", default="c2cs")
-    argparser.add_argument('--inbound_ep', help="inbound initiator endpoint name", default="swell")                 # the server certification should be specified
-    argparser.add_argument('--outbound_ep', help="outbound initiator endpoint name", default="swell")               # the server certification should be specified
-    #argparser.add_argument('--p2cs_key', help="p2cs key", default="p2cs")                                          #TODO: parse the key generator and then check if it is not p2cs, add it to the key dist too!
-
-    argparser.add_argument('--type', help= "proxy type: HaproxySubprocess, StunnelSubprocess, Haproxy", default="StunnelSubprocess")
-    argparser.add_argument('--rate', type=int, help="transfer rate",default=10000)         #TODO: Add it to the command lines
-    argparser.add_argument('--num_conn', type=int, help="THe number of specified ports", default=5)
-    argparser.add_argument('--inbound_src_ports', type=str, help="Comma-separated list of inbound receiver ports", default="5074,5075,5076,5077,5078")
-    argparser.add_argument('--outbound_dst_ports', type=str, help="Comma-separated list of outbound receiver ports", default="5100,5101,5102,5103,5104")    #dynamically is increased by the s2uc and then is read from the log file
-
-    argparser.add_argument('-m', '--mini', action='store_true', help="Run the mini-apps", default=False)
-    argparser.add_argument('--num_mini', type=int, help="The number of concurrent aps-mini-app run", default=5)
-    
-
-    return argparser.parse_args()
 
 
 
@@ -88,7 +49,19 @@ def get_status(gcc, uuid, name):
 #TODO: get the name of the endpoint from the command line and not hardcoded
 
 
-
+def reload_endpoints():
+    del_list = ['prod', 'cons', 'c2cs', 'p2cs']
+    print(f"Deleting endpoints: {del_list}\n")
+    for ep in gcc.get_endpoints():
+        status = gcc.get_endpoint_status(ep['uuid'])['status']
+        if status != 'online':
+            if ep['name'] in del_list:
+                print(f"{ep['name']} ({ep['uuid']}) is {status}, deleting...")
+                gcc.delete_endpoint(ep['uuid'])
+        else:
+            print(f"{ep['name']} ({ep['uuid']}) is {status}, skipping deletion")
+            
+            
 def health_check():
     """Check the health of the endpoints and log the status."""
     
@@ -107,6 +80,7 @@ def health_check():
                 if gcc.get_endpoint_status(uuid).get('status', 'offline') != 'online':
                     print(f"Endpoint {name} with UID {uuid} is offline")
                     logging.error(f"Endpoint {name} is offline")
+                    #reload_endpoints()
                     sys.exit(1)
         print(f"All endpoints are online and running \n")
         return ep_mapping
@@ -148,6 +122,7 @@ def stop_service():
 
     # iterate over sci_funcs (keys = endpoint names, values = functions)
     for endpoint, func in clean.items():
+        print(f"Stopping orphan processes on {endpoint}, {func}")
         thread = threading.Thread(target=func,  args=(args, endpoint, get_uuid(endpoint)), daemon=True)
         kill_threads[thread] = endpoint
         thread.start()
@@ -156,10 +131,9 @@ def stop_service():
     for thread, endpoint in kill_threads.items():
         thread.join()
         logging.debug(f"MAIN: Finished killing Orphan processes on '{endpoint}' ")
-        
-        
-        
-        
+
+
+
 def start_keygen():
     """Generate the keys for the endpoints."""
         
@@ -227,7 +201,14 @@ def start_mini():
     for thread in mini:
         thread.join()
         print(f"Task Execution on Endpoint '{mini[thread]}' has Finished")
-        
+
+
+def start_nginx():
+    """Start the Nginx configuration for the endpoints."""
+    
+    p2cs_nginx_conf(args, args.p2cs_ep, get_uuid(args.p2cs_ep))
+    c2cs_nginx_conf(args, args.c2cs_ep, get_uuid(args.c2cs_ep))
+    logging.info("Nginx configuration completed")
 
 
 gcc = Client()
@@ -249,10 +230,16 @@ if __name__ == "__main__":
     
     ep_mapping = health_check()
     args.cleanup and stop_service()
-    args.cleanup and start_keygen()
     
-    start_s2cs()
-    start_connection()
+    #if args.type == "Nginx": start_nginx()
+    #elif args.type in ("HaproxySubprocess", "StunnelSubprocess"): start_keygen(); start_s2cs(); start_connection()
+    #args.type in ("HaproxySubprocess", "StunnelSubprocess") and (start_keygen(), start_s2cs(), start_connection())     #will ignore the return values
     
-    args.mini and start_mini()
-    
+    if args.type == "Nginx":
+        start_nginx()
+    elif args.type in ["HaproxySubprocess", "StunnelSubprocess"]:
+        start_keygen()
+        start_s2cs()
+        start_connection()
+
+    #args.mini and start_mini()
