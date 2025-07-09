@@ -14,7 +14,7 @@ class Config:
     #_PORT_MAP = {1: 3, 3: 1}
     #_BAND = ["0", "10G"]
     
-    _TIME_FRAMES =  [60]    #[5, 10]
+    _TIME_FRAMES =  [20]    #[5, 10]
     _WIN_SIZE = ["0"]
     _PARALLELS = [1, 3, 5]        #[1,3] 
 
