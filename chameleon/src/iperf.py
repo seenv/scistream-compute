@@ -1,166 +1,36 @@
-import subprocess, socket, os, logging, time, getpass
+import os, logging, time
 from datetime import datetime
 from pathlib import Path
-from utils import run_subprocess, sys_reload, mkdir, run_stats
-import logging
-import logging
-from config import Config
 
+from config import Config
+from utils import run_subprocess, sys_reload, mkdir, run_stats
 from congestion import congestion_check, congestion_change
 from proxy import proxy_check, proxy_change
 
 
-
-
-"""
-def run_iperf(c2cs_ip, port, congestion, window, parallel, duration, run, output_dir):
-    try:
-        log_file = os.path.join(output_dir, f"iperf_{port}_R{run}.json")
-        logging.info(f"IPERF: Starting iperf on port {port} with congestion {congestion}, window {window}, parallel {parallel}, duration {duration} seconds")
-        #iperf_cmd = [
-        #    'iperf3', '-c', c2cs_ip,
-        #    '-p', str(port),
-        #    '-C', str(congestion),
-        #    '-O', '3',
-        #    '-b', '0',  # unlimited bandwidth by default for TCP
-        #    '-R',
-        #    '-Z',
-        #    '-w', window,
-        #    '--fq-rate', '0',
-        #    '-P', str(parallel),
-        #    '-t', str(duration),
-        #    '--timestamp',
-        #    '-J',
-        #    '--logfile', log_file
-        #]
-        iperf_cmd = [
-            'iperf3', '-c', c2cs_ip,
-            '-p', str(port),
-            '-O', '3',
-            '-R',
-            '-Z',
-            '-w', window,
-            '-P', str(parallel),
-            '-t', str(duration),
-            '--timestamp',
-            #'-J',
-            '--logfile', log_file
-        ]
-        #return run_subprocess(iperf_cmd)
-        proc = run_subprocess(iperf_cmd, text=True)
-        if proc is None:
-            logging.error("IPERF: Failed to start iperf")
-            return None
-
-        stdout, stderr = proc.communicate()
-        if proc.returncode != 0:
-            logging.error(f"IPERF: Failed running iperf: {stderr.strip()} \n")
-            raise Exception(f"IPERF: Error running iperf command: {stderr.strip()} \n")
-        
-        logging.info(f"IPERF: Successfully ran iperf")
-        return
-    except Exception as e:
-        logging.error(f"IPERF: Failed to run iperf command {e}", exc_info=True)
-        raise RuntimeError(f"IPERF: Error running iperf command {e}") from e
-    
-
-
-
-    
-
-def iperf_client(host, server_ip, port, congestion, window, parallel, duration, run, output_dir):
-    try:
-        #log_file = os.path.join(output_dir, f"s2cs_iperf.json")        
-        log_file = os.path.join(output_dir, f"iperf_{port}_R{run}.json")
-
-        if host == "local":
-            cmd = [
-                'iperf3', '-c', server_ip, '-p', str(port), '-O', '3', '-R', '-Z',
-                '-w', str(window), '-P', str(parallel), '-t', '10', '-J',
-                '--timestamp', '--logfile', log_file
-            ]
-
-        else:
-            cmd = [
-                "ssh", host,
-                f"iperf3 -c {server_ip} -p {port} -O 3 -R -Z "
-                f"-w {window} -P {parallel} -t {duration} "
-                f"--timestamp --logfile {log_file}"
-            ]
-        
-        #logging.info("IPERF: Starting iperf between P2CS and C2CS")
-        proc = run_subprocess(cmd, text=True)
-        if proc is None:
-            logging.error(f"IPERF: Failed to run command on {host.upper()}")
-            return None
-        
-        stdout, stderr = proc.communicate()
-        if proc.returncode != 0:
-            logging.error(f"IPERF: Failed to run iperf on {host.upper()}: {stderr.strip()}")
-            return None
-
-        logging.info("IPERF: Done between P2CS and C2CS\n")
-    
-    except Exception as e:
-        logging.error(f"IPERF: Error running iperf on {host.upper()} {e}", exc_info=True)
-        raise RuntimeError(f"IPERF: Error running iperf on {host.upper()}  {e}") from e"""
-
-
-
-
-
-
-
-
-
-
 def stop_iperf(host):
     try:
-        #logging.info(f"IPERF: Stopping iperf on {host.upper()}")
+        #logging.info(f"IPERF: Stopping iperf on {host.capitalize()}")
         cmd = ["ssh", host, "pkill iperf3"]
         proc = run_subprocess(cmd, text=True)
         if proc is None:
-            logging.error(f"IPERF: Failed to stop iperf on {host.upper()}")
+            logging.error(f"IPERF: Failed to stop iperf on {host.capitalize()}")
             return None
         
         stdout, stderr = proc.communicate()
         #if proc.returncode != 0:
-        #    logging.error(f"IPERF: Failed to stop iperf on {host.upper()}: {stderr.strip()}")
+        #    logging.error(f"IPERF: Failed to stop iperf on {host.capitalize()}: {stderr.strip()}")
         #    return None
 
-        #logging.info(f"IPERF: Successfully stopped iperf on {host.upper()}")
+        #logging.info(f"IPERF: Successfully stopped iperf on {host.capitalize()}")
     except Exception as e:
-        logging.error(f"IPERF: Error stopping iperf on {host.upper()} {e}", exc_info=True)
-        raise RuntimeError(f"IPERF: Error stopping iperf on {host.upper()}  {e}") from e
-
+        logging.error(f"IPERF: Error stopping iperf on {host.capitalize()} {e}", exc_info=True)
+        raise RuntimeError(f"IPERF: Error stopping iperf on {host.capitalize()}  {e}") from e
 
 
 def start_iperf_servers(port, parallel, run, output_dir):
-    try:
-        
+    try:      
         #logging.info(f"IPERF: Starting iperf server in {output_dir} with name {log_file}")
-        """srv_cmds = {
-            "chi-prod": [
-                "ssh", "chi-prod",
-                f"(iperf3 -s -1 -p 5074 & "
-                f"iperf3 -s -1 -p 5075 & "
-                f"iperf3 -s -1 -p 5076 --timestamp --logfile {exp_dir}/{exp_name}_prod.log) "
-            ],
-            "chi-p2cs": [
-                "ssh", "chi-p2cs",
-                f"iperf3 -s -1 -p 6666 2>&1 | "
-                f"ts '[%Y-%m-%d %H:%M:%S]' | tee {exp_dir}/{exp_name}_p2cs.log "
-            ]
-        }"""
-        """srv_procs = []
-        for host, cmd in srv_cmds.items():
-            mkdir(host, exp_dir)
-            logging.info(f"IPERF: Starting iperf server on {host.upper()}")
-            proc = run_subprocess(cmd, check=True,text=True)
-            srv_procs.append(proc)
-        return srv_procs"""
-        
-        
         log_file = os.path.join(output_dir, f"iperf_{port}_R{run}.json")
         processes = []
         prods = {"chi-prod": "5074", "chi-p2cs": "6666"}
@@ -170,9 +40,9 @@ def start_iperf_servers(port, parallel, run, output_dir):
                 f"iperf3 -s -1 -p {port} -V --timestamp --logfile {log_file}"
             ]
 
-            #logging.info(f"IPERF: Starting iperf server on {host.upper()}")
+            #logging.info(f"IPERF: Starting iperf server on {host.capitalize()}")
             proc = run_subprocess(cmd, text=True)
-            logging.info(f"IPERF: Started iperf server on {host.upper()}")
+            logging.info(f"IPERF: Started iperf server on {host.capitalize()}")
             processes.append(proc)
         #return processes
         return
@@ -210,28 +80,28 @@ def iperf_s2cs(congestion, window, parallel, duration, run, output_dir):
 
         proc = run_subprocess(cmd, text=True)
         if proc is None:
-            logging.error(f"IPERF: Failed to run command on {host.upper()}")
+            logging.error(f"IPERF: Failed to run command on {host.capitalize()}")
             return None
         
         logging.info(f"IPERF: Started iperf between P2CS and C2CS")
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
-            logging.error(f"IPERF: Failed to run iperf on {host.upper()}: {stderr.strip()}")
+            logging.error(f"IPERF: Failed to run iperf on {host.capitalize()}: {stderr.strip()}")
             return None
         
         for stats in s2cs_stats:
             stdout, stderr = stats.communicate()        
             """if proc.returncode != 0:
-                logging.error(f"IPERF: Failed to run iperf on {host.upper()}: {stderr.strip()}")
-                raise RuntimeError(f"IPERF: Error running iperf on {host.upper()}  {stderr.strip()}")"""
+                logging.error(f"IPERF: Failed to run iperf on {host.capitalize()}: {stderr.strip()}")
+                raise RuntimeError(f"IPERF: Error running iperf on {host.capitalize()}  {stderr.strip()}")"""
             logging.info("STATS: Completed System Monitor successfully")
         
         logging.info("IPERF: iperf is done.\n")
         return
     
     except Exception as e:
-        logging.error(f"IPERF: Error running iperf on {host.upper()} {e}", exc_info=True)
-        raise RuntimeError(f"IPERF: Error running iperf on {host.upper()}  {e}") from e
+        logging.error(f"IPERF: Error running iperf on {host.capitalize()} {e}", exc_info=True)
+        raise RuntimeError(f"IPERF: Error running iperf on {host.capitalize()}  {e}") from e
 
 
 
@@ -261,64 +131,36 @@ def iperf_endpoint(congestion, window, parallel, duration, run, output_dir):
         
         proc = run_subprocess(cmd, text=True)
         if proc is None:
-            logging.error(f"IPERF: Failed to run command on {host.upper()}")
+            logging.error(f"IPERF: Failed to run command on {host.capitalize()}")
             return None
         logging.info(f"IPERF: Started iperf between PROD and CONS")
+        time.sleep(15)
+        proc.wait()
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
-            logging.error(f"IPERF: Failed to run iperf on {host.upper()}: {stderr.strip()}")
+            logging.error(f"IPERF: Failed to run iperf on {host.capitalize()}: {stderr.strip()}")
             return None
 
         #checking whether the sys monitoring script is done
         for stats in endpoint_stats:
-            stdout, stderr = stats.communicate()
+            stats.wait()
+            #stdout, stderr = stats.communicate()
             """if stats.returncode != 0:
-                logging.error(f"IPERF: Failed to run iperf on {host.upper()}: {stderr.strip()}")
-                raise RuntimeError(f"IPERF: Error running iperf on {host.upper()}  {stderr.strip()}")"""
+                logging.error(f"IPERF: Failed to run iperf on {host.capitalize()}: {stderr.strip()}")
+                raise RuntimeError(f"IPERF: Error running iperf on {host.capitalize()}  {stderr.strip()}")"""
             logging.info("STATS: Completed System Monitor successfully")
             
         logging.info("IPERF: iperf is done.\n")
         return
     
     except Exception as e:
-        logging.error(f"IPERF: Error running iperf on {host.upper()} {e}", exc_info=True)
-        raise RuntimeError(f"IPERF: Error running iperf on {host.upper()}  {e}") from e
-        
-        
-        
-
-        """for proc in endpoint_stats:
-            if proc is None:
-                logging.error("STATS: Failed to start System Monitor")
-                raise RuntimeError("STATS: Error starting System Monitor")
-            
-            stdout, stderr = proc.communicate()
-            if proc.returncode != 0:
-                logging.error(f"IPERF: Failed to run iperf on {host.upper()}: {stderr.strip()}")
-                raise RuntimeError(f"IPERF: Error running iperf on {host.upper()}  {stderr.strip()}")
-            logging.info("STATS: Completed System Monitor successfully.")"""
-    """    return
-    except Exception as e:
-        logging.error(f"IPERF: Error running iperf on {host.upper()} {e}", exc_info=True)
-        raise RuntimeError(f"IPERF: Error running iperf on {host.upper()} {e}") from e"""
-            
-
-
-
-
-
-
-
-
-
-
+        logging.error(f"IPERF: Error running iperf on {host.capitalize()} {e}", exc_info=True)
+        raise RuntimeError(f"IPERF: Error running iperf on {host.capitalize()}  {e}") from e
 
 
 
 def iperf_main():
-    
     logging.info("IPERF: Starting iperf main process \n") 
-
     total_runs = len(Config._TIME_FRAMES) * len(Config._CONGESTIONS) * len(Config._PROXY) * len(Config._PARALLELS) * Config._RUN_NUM * len(Config._WIN_SIZE)
 
     #prev_congestion = Config._CONGESTIONS[0]
@@ -353,29 +195,24 @@ def iperf_main():
             prev_proxy = proxy
 
         logging.info(f" ----- Congestion: {congestion.capitalize()}, proxy: {proxy}, Duration: {duration}, Parallel: {parallel}, Window: {window}, Run:{Config._RUN_NUM} ----- \n")
-        logging.info(f"IPERF: Total: {total_idx} / {total_runs}: Run: {run} / {Config._RUN_NUM} ----------------------------- \n")
-        logging.info(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logging.info(f"IPERF: Total: {total_idx} / {total_runs}: Run: {run} / {Config._RUN_NUM} ----------------------------- ")
+        logging.info(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} \n")
 
-        #app_dir = Path(Config._HOME_DIR) / f"{Config._APP}" / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-        #output_dir = Path(app_dir) / f"{congestion}" / f"{proxy}" / f"P{parallel}" / f"T{duration}"
-        #output_dir.mkdir(parents=True, exist_ok=True)
-
-        #output_dir = {}
-
-        for name, host in Config._HOSTS.items():
+        for host in Config._HOSTS.values():
             stop_iperf(host)
+            time.sleep(2)
             #output_dir = Path(Config._HOME_DIR) / f"{proxy}" / f"{congestion}" / f"P{parallel}" / f"T{duration}" / f"R{run}"
             output_dir = Path(Config._HOME_DIR) / f"{proxy}" / f"{congestion}" / f"P{parallel}" / f"T{duration}"
             mkdir(host, output_dir)
             #output_dir[name] = outdir
         
-        time.sleep(1)
-
-        start_iperf_servers(Config._BASE_PORT, parallel, run, output_dir)
         time.sleep(2)
-        
+        start_iperf_servers(Config._BASE_PORT, parallel, run, output_dir)
+
+        time.sleep(2)
         iperf_endpoint(congestion, window, parallel, duration, run, output_dir)
-        
+
+        time.sleep(10)
         iperf_s2cs(congestion, window, parallel, duration, run, output_dir)
 
         if run == Config._RUN_NUM:
@@ -384,72 +221,3 @@ def iperf_main():
 
     logging.info("All experiments complete")
     time.sleep(10)
-
-
-
-
-
-
-
-
-
-    """def iperf_main():
-    
-    cnt = 1
-    total_runs = len(_TIME_FRAMES) * len(_CONGESTIONS) * len(_PROXY) * len(_PARALLELS) * _RUN_NUM * len(_WIN_SIZE)
-    for cng, congestion in enumerate(_CONGESTIONS):            
-        for ptl, proxy in enumerate(_PROXY):
-            for duration in _TIME_FRAMES:
-                for parallel in _PARALLELS:
-                    #for bandwidth in _BAND:
-                    for window in _WIN_SIZE:
-
-                        logging.info(f"----- Congestion: {congestion}, proxy: {proxy}, Duration: {duration}, Parallel: {parallel}, Window: {window}, Run:{_RUN_NUM} -----\n")
-
-                        for run in range(1, _RUN_NUM + 1):
-                            logging.info(f"IPERF: Total: {cnt} / {total_runs}: Run: {run} / {_RUN_NUM} ----------------------------- ")
-                            logging.info(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                            cnt += 1
-                            #ports = [_BASE_PORT + offset for offset in range(_PORT_MAP[parallel])]
-
-                            output_dir = Path(_HOME_DIR) / f"{congestion}" / f"{proxy}" / f"P{parallel}" / f"T{duration}" / f"R{run}"
-                            output_dir.mkdir(parents=True, exist_ok=True)
-
-                            stats_proc = run_stats(duration + 3, run, output_dir, _SRC_DIR)
-                            run_iperf(_C2CS_IP, _BASE_PORT, congestion, window, parallel, duration, output_dir)
-
-                            stdout, stderr = stats_proc.communicate()
-                            #if stats_proc.returncode != 0:
-                            #    logging.error(f"STATS: Failed running System Monitor:\n{stderr.decode()} \n")
-                            #else:
-                            logging.info("STATS: Completed System Monitor successfully. \n")
-                            time.sleep(5)
-
-                            # run an iperf between the two s2cs's
-                            s2cs_iperf("chi-c2cs", _P2CS_IP, "6666", congestion, window, parallel, duration, output_dir)
-                            time.sleep(5)
-
-                        logging.info(f"IPERF: Complete run {run} / {_RUN_NUM} ------------------------------------ ")
-                        time.sleep(5)
-                    
-            if proxy != _PROXY[-1]:
-                proxy_change(_MERROW_GLOBUS_SCRIPT, _S2CS_HOSTS, _PROXY[ptl + 1]) if not proxy_check(_S2CS_HOSTS, _PROXY[ptl + 1]) else None
-                time.sleep(1)
-                
-        if congestion != _CONGESTIONS[-1]:
-            proxy_change(_MERROW_GLOBUS_SCRIPT, _S2CS_HOSTS, _PROXY[0]) if not proxy_check(_S2CS_HOSTS, _PROXY[0]) else None
-            time.sleep(1)
-
-    time.sleep(10)
-
-    logging.info("All experiments complete.")"""
-    
-    
-
-
-
-
-
-
-    
-

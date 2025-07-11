@@ -1,8 +1,5 @@
-import subprocess, socket, os, logging, time, getpass
-from datetime import datetime
-from pathlib import Path
-from utils import run_subprocess, sys_reload, mkdir, run_stats
 import logging
+from utils import run_subprocess
 
 
 def congestion_check(host, congestion):
@@ -15,20 +12,19 @@ def congestion_check(host, congestion):
         proc = run_subprocess(cmd, text=True)
 
         if proc is None:
-            raise Exception(f"CONGESTION: Failed to run command on {host.upper()}")
+            raise Exception(f"CONGESTION: Failed to run command on {host.capitalize()}")
 
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
             raise Exception(stderr.strip())
 
         current = stdout.split('=')[1].strip()
-        logging.info(f"CONGESTION: Congestion control on {host.upper()}:    current {current.upper()},     expected: {congestion.upper()}")
+        logging.info(f"CONGESTION: Congestion control on {host.capitalize()}:    current {current.upper()},     expected: {congestion.upper()}")
         return True if congestion == current else False
     
     except Exception as e:
-        logging.error(f"CONGESTION: Failed checking congestion control on {host.upper()}: {e} \n")
-        raise Exception(f"CONGESTION: Error checking congestion control on {host.upper()}: {e} \n")
-
+        logging.error(f"CONGESTION: Failed checking congestion control on {host.capitalize()}: {e} \n")
+        raise Exception(f"CONGESTION: Error checking congestion control on {host.capitalize()}: {e} \n")
 
 
 def congestion_change(host, congestion):
@@ -38,7 +34,7 @@ def congestion_change(host, congestion):
         else:
             cmd = ["sudo", "sysctl", f"net.ipv4.tcp_congestion_control={congestion}"]
 
-        logging.info(f"CONGESTION: Setting congestion control to {congestion.upper()} on {host.upper()}.")
+        logging.info(f"CONGESTION: Setting congestion control to {congestion.upper()} on {host.capitalize()}.")
         proc = run_subprocess(cmd, text=True)
 
         if proc is None:
@@ -48,12 +44,12 @@ def congestion_change(host, congestion):
         if proc.returncode != 0:
             raise Exception(stderr.strip())
 
-        logging.info(f"CONGESTION: Successfully set congestion control to {stdout.strip()} on {host.upper()}")
+        logging.info(f"CONGESTION: Successfully set congestion control to {stdout.strip()} on {host.capitalize()}")
         #return congestion ?
         return 
 
     except Exception as e:
-        logging.error(f"CONGESTION: Failed switching to {congestion.upper()} on {host.upper()}:\n {e} \n")
+        logging.error(f"CONGESTION: Failed switching to {congestion.upper()} on {host.capitalize()}:\n {e} \n")
         raise Exception(f"CONGESTION: Error changing congestion control: {e} \n")
 
 

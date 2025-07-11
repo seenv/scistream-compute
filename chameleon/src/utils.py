@@ -1,7 +1,5 @@
-import subprocess, socket, os, logging, time, getpass
-from datetime import datetime
-from pathlib import Path
-import logging
+import subprocess, os, logging
+
 from config import Config
 
 
@@ -37,13 +35,13 @@ def sys_reload(host):
         if proc.returncode != 0:
             raise Exception(stderr.strip())
 
-        logging.info(f"SYSRELOAD: Successfully reloaded the sysctl on {host.upper()}")
+        logging.info(f"SYSRELOAD: Successfully reloaded the sysctl on {host.capitalize()}")
         #return congestion ?
         return 
     
     except Exception as e:
-        logging.error(f"SYSRELOAD: Failed reloading the sysctl on {host.upper()}: {e}")
-        raise Exception(f"SYSRELOAD: Failed reloading the sysctl on {host.upper()}: {e}")
+        logging.error(f"SYSRELOAD: Failed reloading the sysctl on {host.capitalize()}: {e}")
+        raise Exception(f"SYSRELOAD: Failed reloading the sysctl on {host.capitalize()}: {e}")
 
 
 
@@ -54,23 +52,23 @@ def mkdir(host, directory):
         else:
             cmd = ["mkdir", "-p", directory]
         
-        #logging.info(f"Creating directory {directory} on {host.upper()}")
+        #logging.info(f"Creating directory {directory} on {host.capitalize()}")
         proc = run_subprocess(cmd, text=True)
 
         if proc is None:
-            logging.error(f"UTILS: Failed to create directory {directory} on {host.upper()}")
-            raise Exception(f"Failed to create directory {directory} on {host.upper()}")
+            logging.error(f"UTILS: Failed to create directory {directory} on {host.capitalize()}")
+            raise Exception(f"Failed to create directory {directory} on {host.capitalize()}")
 
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
             raise Exception(stderr.strip())
 
-        logging.debug(f"UTILS: Successfully created directory {directory} on {host.upper()}")
+        logging.debug(f"UTILS: Successfully created directory {directory} on {host.capitalize()}")
         return
 
     except Exception as e:
-        logging.error(f"UTILS: Failed to create directory {directory} on {host.upper()}: {e}")
-        raise Exception(f"UTILS: Error creating directory {directory} on {host.upper()}: {e}")
+        logging.error(f"UTILS: Failed to create directory {directory} on {host.capitalize()}: {e}")
+        raise Exception(f"UTILS: Error creating directory {directory} on {host.capitalize()}: {e}")
     
     
 
@@ -79,7 +77,7 @@ def get_username(host):
         cmd = ["ssh", host, f"echo $USER"]
         proc = run_subprocess(cmd, text=True)
         if proc is None:
-            raise Exception(f"Failed to get username for {host.upper()}")
+            raise Exception(f"Failed to get username for {host.capitalize()}")
         
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
@@ -102,23 +100,21 @@ def scp_sys_script():
             remote_user = get_username(host)
             #cmd = [["scp", "sys_monitor.py", f"{remote_user}@{host}:~/"] for host in Config._HOSTS.values()]
             cmd = ["scp", local_sys_script, f"{remote_user}@{host}:/home/{remote_user}/"]
-   
             #logging.info(f"STATS: Copying system monitor script to {host}")
             proc = run_subprocess(cmd)
-
             if proc is None:
-                raise Exception(f"STATS: Failed to copy system monitor script to {host.upper()}")
+                raise Exception(f"STATS: Failed to copy system monitor script to {host.capitalize()}")
 
             stdout, stderr = proc.communicate()
             if proc.returncode != 0:
                 raise Exception(stderr.strip())
 
-            logging.info(f"STATS: Successfully copied system monitor script to {host.upper()}")
+            logging.info(f"STATS: Successfully copied system monitor script to {host.capitalize()}")
         return
 
     except Exception as e:
-        logging.error(f"STATS: Failed to copy system monitor script to {host.upper()}: {e}")
-        raise Exception(f"STATS: Error copying system monitor script to {host.upper()}: {e}")
+        logging.error(f"STATS: Failed to copy system monitor script to {host.capitalize()}: {e}")
+        raise Exception(f"STATS: Error copying system monitor script to {host.capitalize()}: {e}")
 
 
 
@@ -142,7 +138,7 @@ def run_stats(host, duration, run, log_file, src_dir):
             logging.error("STATS: Failed to start System Monitor")
             raise Exception("STATS: Failed to start System Monitor")
         else:
-            logging.info(f"STATS: Started System Monitor on {host.upper()}")
+            logging.info(f"STATS: Started System Monitor on {host.capitalize()}")
             return proc
         
     except Exception as e:
